@@ -311,14 +311,19 @@ server <- function(input, output, session) {
     sf_wgs$display_nm  <- rk$name[idx]
 
     comp_vals <- sf_wgs$composite
-    pal <- colorNumeric("YlOrRd", domain = comp_vals, na.color = "#cccccc")
+    all_na <- all(is.na(comp_vals))
 
     n_huc <- sum(!is.na(sf_wgs$rank_pos))
-    labels <- sprintf(
-      "<strong>%s</strong><br/>Rank: %d of %d<br/>Score: %.2f",
-      ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm),
-      sf_wgs$rank_pos, n_huc, sf_wgs$composite
-    ) |> lapply(htmltools::HTML)
+    labels <- if (all_na) {
+      sprintf("<strong>%s</strong><br/><em>No weights active</em>",
+              ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm))
+    } else {
+      sprintf(
+        "<strong>%s</strong><br/>Rank: %d of %d<br/>Score: %.2f",
+        ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm),
+        sf_wgs$rank_pos, n_huc, sf_wgs$composite
+      )
+    } |> lapply(htmltools::HTML)
 
     # Top-3 HUCs (handles ties via rank <= 3). Use point-on-surface so
     # the label is guaranteed inside irregular polygons.
@@ -331,24 +336,43 @@ server <- function(input, output, session) {
     proxy <- leafletProxy("map") |>
       clearGroup("hucs") |>
       clearGroup("top3") |>
-      clearControls() |>
-      addPolygons(
-        data = sf_wgs,
-        group = "hucs",
-        weight = 1, color = "#333",
-        fillColor = ~pal(composite),
-        fillOpacity = 0.8,
-        label = labels,
-        labelOptions = labelOptions(direction = "auto", textsize = "12px"),
-        highlightOptions = highlightOptions(
-          weight = 3, color = "#000", fillOpacity = 0.9, bringToFront = TRUE
+      clearControls()
+
+    if (all_na) {
+      # No weights active: render HUCs in a neutral fill with no legend.
+      proxy <- proxy |>
+        addPolygons(
+          data = sf_wgs, group = "hucs",
+          weight = 1, color = "#333",
+          fillColor = "#cccccc", fillOpacity = 0.5,
+          label = labels,
+          labelOptions = labelOptions(direction = "auto", textsize = "12px"),
+          highlightOptions = highlightOptions(
+            weight = 3, color = "#000", fillOpacity = 0.7, bringToFront = TRUE
+          )
         )
-      ) |>
-      addLegend(
-        position = "bottomright",
-        pal = pal, values = comp_vals,
-        title = "Composite<br/>score", opacity = 0.85
-      ) |>
+    } else {
+      pal <- colorNumeric("YlOrRd", domain = comp_vals, na.color = "#cccccc")
+      proxy <- proxy |>
+        addPolygons(
+          data = sf_wgs, group = "hucs",
+          weight = 1, color = "#333",
+          fillColor = ~pal(composite),
+          fillOpacity = 0.8,
+          label = labels,
+          labelOptions = labelOptions(direction = "auto", textsize = "12px"),
+          highlightOptions = highlightOptions(
+            weight = 3, color = "#000", fillOpacity = 0.9, bringToFront = TRUE
+          )
+        ) |>
+        addLegend(
+          position = "bottomright",
+          pal = pal, values = comp_vals,
+          title = "Composite<br/>score", opacity = 0.85
+        )
+    }
+
+    proxy <- proxy |>
       fitBounds(
         lng1 = sf::st_bbox(sf_wgs)[["xmin"]],
         lat1 = sf::st_bbox(sf_wgs)[["ymin"]],

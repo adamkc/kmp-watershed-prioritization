@@ -121,6 +121,14 @@ plot_rank_distribution <- function(results, summary_df, limit_top = 30) {
                    show_rows$huccode,
                    show_rows$name)
 
+  # Disambiguate duplicate HUC names (common ones like "Bear Creek"
+  # appear multiple times) by appending the huccode in parens.
+  dup_mask <- duplicated(labels) | duplicated(labels, fromLast = TRUE)
+  if (any(dup_mask)) {
+    labels[dup_mask] <- paste0(labels[dup_mask],
+                               " (", show_rows$huccode[dup_mask], ")")
+  }
+
   long <- data.frame(
     label = rep(labels, each = results$n_draws),
     rank  = as.vector(ranks_m)

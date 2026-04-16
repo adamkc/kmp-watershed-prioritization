@@ -34,6 +34,23 @@ slider_id <- function(column_name) {
   paste0("w_", gsub("[^A-Za-z0-9]+", "_", column_name))
 }
 
+# Inline "?" help icon with a bslib tooltip. Use in label strings
+# to explain a control without cluttering the label text.
+help_icon <- function(text, placement = "top") {
+  bslib::tooltip(
+    tags$span(
+      style = "display: inline-block; width: 16px; height: 16px;
+               border-radius: 50%; background: #6c757d; color: white;
+               font-size: 11px; font-weight: 700; text-align: center;
+               line-height: 16px; margin-left: 4px; cursor: help;
+               vertical-align: middle;",
+      "?"
+    ),
+    text,
+    placement = placement
+  )
+}
+
 # KMP zone outline, loaded once at app start.
 KMP_BOUNDARY <- sf::st_read("data/kmp_boundary.geojson", quiet = TRUE)
 KMP_BBOX     <- sf::st_bbox(KMP_BOUNDARY)
@@ -153,19 +170,30 @@ ui <- page_sidebar(
         fluidRow(
           column(3,
             sliderInput("sens_uncertainty",
-                        "Weight uncertainty (\u00B1 %)",
-                        min = 5, max = 100, value = 30, step = 5)
+              label = tagList(
+                "Weight uncertainty (\u00B1 %)",
+                help_icon(
+                  "Each active weight is multiplied by a random factor between (1 - p) and (1 + p) on every draw. Bigger values shuffle rankings more; 30% is a reasonable exploratory default.")
+              ),
+              min = 5, max = 100, value = 30, step = 5)
           ),
           column(3,
             sliderInput("sens_draws",
-                        "Number of draws",
-                        min = 100, max = 5000, value = 1000, step = 100)
+              label = tagList(
+                "Number of draws",
+                help_icon(
+                  "How many Monte Carlo samples to run. More draws give smoother rank distributions (less Monte Carlo noise) but take slightly longer. 1000 is fine for exploration; bump to 5000 for final reports.")
+              ),
+              min = 100, max = 5000, value = 1000, step = 100)
           ),
           column(3,
             sliderInput("sens_top_pct",
-                        "Top fraction for P(top)",
-                        min = 5, max = 50, value = 10, step = 5,
-                        post = "%")
+              label = tagList(
+                "Top fraction for P(top)",
+                help_icon(
+                  "Defines what 'top' means when computing P(top). At 10%, P(top) is the fraction of draws in which a HUC landed in the top 10% of all HUCs. Lower values make the stability threshold stricter.")
+              ),
+              min = 5, max = 50, value = 10, step = 5, post = "%")
           ),
           column(3,
             tags$label("\u00A0", class = "form-label d-block"),
@@ -328,21 +356,24 @@ server <- function(input, output, session) {
             }),
             actionButton("pick_custom", "Custom metric list...",
                          class = "btn-outline-primary scenario-btn",
-                         width = "100%"),
-            actionButton("pick_upload", "Upload CSV...",
-                         class = "btn-outline-secondary scenario-btn",
                          width = "100%")
           ),
 
-          # File input surfaces only when the user clicked "Upload CSV".
-          if (identical(rv$source_type, "upload") || !is.null(input$pick_upload)) {
-            conditionalPanel(
-              "true",
-              fileInput("csv_file", label = "Upload CSV",
-                        accept = c(".csv", "text/csv"),
-                        placeholder = "No file selected")
-            )
-          }
+          tags$hr(class = "my-3"),
+
+          fileInput("csv_file",
+                    label = "For custom metrics, upload a CSV",
+                    accept = c(".csv", "text/csv"),
+                    placeholder = "No file selected"),
+          div(class = "text-muted",
+              style = "font-size: 0.72rem; line-height: 1.35; margin-top: -8px;",
+              tags$strong("Required:"), " a column named ", tags$code("huccode"),
+              " with 4-, 6-, 8-, 10-, or 12-digit HUC IDs matching the KMP ",
+              "boundaries. ", tags$strong("Optional:"), " a ", tags$code("name"),
+              " column for display labels. All remaining numeric columns are ",
+              "treated as metrics and given sliders. HUC codes must be plain ",
+              "digit strings \u2014 not scientific notation."
+          )
         ),
 
         # --- Step 3: weights ---
@@ -530,13 +561,8 @@ server <- function(input, output, session) {
   })
 
   # --- Upload CSV path ---
-  observeEvent(input$pick_upload, {
-    # The conditional file input rendered in renderUI will now show; the
-    # user still needs to actually pick a file. We don't collapse yet.
-    rv$source_type  <- "upload"
-    rv$source_label <- "Upload pending"
-  })
-
+  # The file input is always visible in Step 2; rv$source_type flips to
+  # "upload" only when the user actually picks a file.
   observeEvent(input$csv_file, {
     req(input$csv_file)
     raw <- tryCatch(read_input_csv(input$csv_file$datapath),

@@ -44,9 +44,9 @@ detect_huc_level <- function(codes) {
   if (any(grepl(sci_pattern, codes_chr))) {
     stop(
       "HUC codes appear to be in scientific notation (e.g. '1.80102E+11'). ",
-      "This happens when Excel exports long numeric IDs. ",
-      "Format the huccode column as Text in Excel before re-exporting, ",
-      "or save directly from R/Python without going through Excel.",
+      "This is typically an Excel export issue -- long numeric IDs get ",
+      "truncated to scientific form. Double-check the huccode column ",
+      "formatting in your source file before re-exporting.",
       call. = FALSE
     )
   }
@@ -68,7 +68,8 @@ detect_huc_level <- function(codes) {
   if (any(unique_lens < 4)) {
     stop(
       "HUC codes appear truncated (some < 4 digits). ",
-      "Format the huccode column as Text in Excel before re-exporting.",
+      "Double-check the huccode column formatting in your source file ",
+      "before re-exporting.",
       call. = FALSE
     )
   }

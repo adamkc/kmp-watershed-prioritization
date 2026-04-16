@@ -25,6 +25,7 @@ source("R/score.R")
 source("R/scenarios.R")
 source("R/metrics.R")
 source("R/sensitivity.R")
+source("R/report.R")
 
 options(shiny.maxRequestSize = 30 * 1024^2)
 
@@ -98,6 +99,23 @@ ui <- page_sidebar(
     .step-summary { font-size: 0.8rem; color: #5a6268; margin-top: 2px; }
     .scenario-btn { text-align: left; white-space: normal; }
     .accordion-button { font-weight: 600; }
+
+    /* Report tab: document-like styling */
+    .report-body { max-width: 820px; margin: 0 auto; line-height: 1.55; }
+    .report-body h1 { border-bottom: 2px solid #1f4f8b; padding-bottom: 0.3em;
+                      color: #1f4f8b; }
+    .report-body h2 { color: #1f4f8b; margin-top: 1.8em;
+                      border-bottom: 1px solid #dee2e6; padding-bottom: 0.15em; }
+    .report-body h3 { margin-top: 1.3em; color: #374151; }
+    .report-body table { border-collapse: collapse; width: 100%; margin: 1em 0;
+                         font-size: 0.92rem; }
+    .report-body th { background: #f0ece1; text-align: left;
+                      padding: 0.45em 0.75em; border-bottom: 2px solid #1f4f8b; }
+    .report-body td { padding: 0.35em 0.75em; border-bottom: 1px solid #e5e7eb; }
+    .report-body tr:nth-child(even) td { background: #f9fafb; }
+    .report-body code { background: #f0f0f0; padding: 0.1em 0.3em;
+                        border-radius: 3px; font-size: 0.9em; }
+    .report-body em { color: #6c757d; }
   "))),
 
   sidebar = sidebar(
@@ -158,6 +176,25 @@ ui <- page_sidebar(
         ),
 
         uiOutput("sensitivity_body")
+      )
+    ),
+
+    nav_panel(
+      title = "Report",
+      div(class = "p-2",
+        div(class = "d-flex justify-content-between align-items-start mb-3",
+            p(class = "text-muted small mb-0 me-3",
+              "Live summary of the current analysis. Copy the rendered ",
+              "text below into a document, or use the download buttons ",
+              "for a standalone file. For PDF, use your browser's ",
+              tags$strong("Print \u2192 Save as PDF"), " on this tab."),
+            div(class = "flex-shrink-0 d-flex gap-2",
+                downloadButton("download_report_md", "Download .md",
+                               class = "btn-sm btn-outline-primary"),
+                downloadButton("download_report_html", "Download .html",
+                               class = "btn-sm btn-outline-primary"))),
+        div(id = "report_body", class = "report-body",
+            uiOutput("report_rendered"))
       )
     ),
 
@@ -835,6 +872,69 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       write.csv(sens_rv$summary, file, row.names = FALSE)
+    }
+  )
+
+
+  # ---- Report tab ----------------------------------------------------------
+
+  # Lookup current scenario object (if any) for the description.
+  current_scenario <- reactive({
+    if (!identical(rv$source_type, "scenario")) return(NULL)
+    for (s in SCENARIOS) {
+      if (identical(s$name, rv$source_label)) return(s)
+    }
+    NULL
+  })
+
+  report_md <- reactive({
+    rv_state <- list(
+      subzone_id     = rv$subzone_id,
+      source_type    = rv$source_type,
+      source_label   = rv$source_label,
+      active_metrics = rv$active_metrics
+    )
+    subzone_name <- names(SUBZONE_CHOICES)[SUBZONE_CHOICES == rv$subzone_id]
+
+    join_info <- if (length(rv$active_metrics) > 0) active_joined() else
+      list(n_matched = nrow(active_data()), unmatched_ids = character())
+
+    rk <- if (length(rv$active_metrics) > 0) ranking() else NULL
+
+    build_report_md(
+      rv_state       = rv_state,
+      subzone_name   = subzone_name,
+      scenario       = current_scenario(),
+      ranking_df     = rk,
+      weights        = weights(),
+      metrics_meta   = METRICS_META,
+      classification = active_classification(),
+      join_info      = join_info,
+      sens_results   = sens_rv$results,
+      sens_summary   = sens_rv$summary
+    )
+  })
+
+  output$report_rendered <- renderUI({
+    shiny::markdown(report_md())
+  })
+
+  output$download_report_md <- downloadHandler(
+    filename = function() {
+      sprintf("kmp_report_%s.md", format(Sys.time(), "%Y%m%d_%H%M"))
+    },
+    content = function(file) {
+      writeLines(report_md(), file, useBytes = TRUE)
+    }
+  )
+
+  output$download_report_html <- downloadHandler(
+    filename = function() {
+      sprintf("kmp_report_%s.html", format(Sys.time(), "%Y%m%d_%H%M"))
+    },
+    content = function(file) {
+      body <- as.character(shiny::markdown(report_md()))
+      writeLines(render_standalone_html(body), file, useBytes = TRUE)
     }
   )
 

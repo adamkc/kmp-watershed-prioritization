@@ -1,0 +1,50 @@
+# Scenario catalog for the KMP Watershed Prioritization Tool.
+#
+# Each scenario defines a named set of metrics and their starting
+# weights. Metric names MUST match column names in the master data
+# file (data/kmp_metrics.csv) exactly -- spaces and case matter.
+#
+# Edit this file to add, remove, or tune scenarios. The app loads
+# this at startup; no code changes required.
+#
+# Weights can be any non-negative number; the app normalizes by
+# dividing by the weight sum during composite scoring, so relative
+# magnitudes are what matter. Convention: 1 = nominal importance,
+# 5 = dominates, 0.333 = three sibling metrics share the weight of
+# one primary metric.
+
+scenarios:
+
+  - id: kmp_general
+    name: KMP General Scenario
+    description: >
+      Balanced prioritization mirroring the KMP working group's v1
+      weights across hydrology, biodiversity, meadow condition, and
+      land management. Meadow NEPA clearance dominates (weight 5)
+      to surface shovel-ready sub-watersheds first.
+    weights:
+      "SUM of ConnRankAveByArea": 1
+      "SUM of RareAmphAveByArea": 0.333
+      "SUM of RarePlantAveByArea": 0.333
+      "Apr1SWE": 1
+      "Coho score": 0.333
+      "Inventoried MdwPercent (/100)": 1
+      "MdwNEPA percent": 5
+      "Fire percent": 1
+      "EFM percent": 1
+      "Federal Land Percent": 1
+
+  - id: kmp_fire
+    name: KMP Fire Scenario
+    description: >
+      PLACEHOLDER fire-focused weighting. Elevates recent-burn meadow
+      restoration opportunity and existing meadow extent. Refine
+      once the KMP working group finalizes fire-specific criteria.
+    weights:
+      "Fire percent": 5
+      "MdwNEPA percent": 3
+      "Inventoried MdwPercent (/100)": 2
+      "Apr1SWE": 1
+      "SUM of ConnRankAveByArea": 1
+      "Federal Land Percent": 1
+      "Coho score": 0.5

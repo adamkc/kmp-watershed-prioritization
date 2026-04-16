@@ -146,3 +146,29 @@ composite_score <- function(bin_scores, weights) {
 rank_hucs <- function(composite) {
   as.integer(rank(-composite, na.last = "keep", ties.method = "min"))
 }
+
+
+#' Invert bin scores for metrics flagged as "negative" direction.
+#'
+#' A metric with direction = "negative" means a LOW raw value deserves
+#' a HIGH priority-score contribution (e.g. invasive plant extent:
+#' fewer invasives = better restoration target). Flipping the bins
+#' before composite scoring lets the weighted-sum logic stay
+#' direction-agnostic: "bin 5" always means "pushes this HUC up".
+#'
+#' Metrics with direction NA / "positive" are passed through unchanged.
+#'
+#' @param bin_scores  Data frame from compute_bin_scores().
+#' @param directions  Named character vector keyed by column name,
+#'                    values "positive" or "negative".
+#' @param n_classes   Bin count used by compute_bin_scores().
+apply_directions <- function(bin_scores, directions,
+                             n_classes = N_CLASSES_DEFAULT) {
+  for (cn in names(bin_scores)) {
+    dir <- directions[[cn]]
+    if (identical(dir, "negative")) {
+      bin_scores[[cn]] <- (n_classes + 1L) - bin_scores[[cn]]
+    }
+  }
+  bin_scores
+}

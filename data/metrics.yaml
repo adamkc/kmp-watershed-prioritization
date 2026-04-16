@@ -1,0 +1,94 @@
+# Metric metadata: category + direction for every metric in the master
+# data file (data/kmp_metrics.csv).
+#
+#   category  -- used to group metrics in the custom picker modal
+#   direction -- "positive" if a higher raw value means higher priority
+#                "negative" if a lower raw value means higher priority
+#
+# The scoring pipeline computes Jenks/ordinal bin scores, then inverts
+# them for "negative"-direction metrics so that "bin 5" always means
+# "this metric pushes this HUC toward the top of the ranking".
+#
+# Metrics not listed here default to direction: positive, category: Other.
+# Scenarios inherit the direction declared here; per-scenario overrides
+# can be added later if needed.
+
+# Category display order -- unlisted categories fall to the end.
+category_order:
+  - Fire
+  - Climate
+  - Restoration
+  - Biodiversity
+  - Admin
+
+metrics:
+
+  # --- Fire ---
+  - name: "Simulated: Recent fire (% area, 10yr)"
+    category: Fire
+    direction: positive
+  - name: "Simulated: Unburned 30yr (%)"
+    category: Fire
+    direction: positive
+  - name: "Simulated: Fire return departure"
+    category: Fire
+    direction: positive
+  - name: "Simulated: High severity fire (% area)"
+    category: Fire
+    direction: positive
+
+  # --- Climate ---
+  - name: "Simulated: Climate resiliency index"
+    category: Climate
+    direction: positive
+  - name: "Simulated: Climate refugia score"
+    category: Climate
+    direction: positive
+  - name: "Simulated: Snow persistence"
+    category: Climate
+    direction: positive
+  - name: "Simulated: Summer water stress"
+    category: Climate
+    direction: negative   # more stress = lower restoration priority
+
+  # --- Restoration ---
+  - name: "Simulated: Lost meadow potential"
+    category: Restoration
+    direction: positive
+  - name: "Simulated: Riparian restoration (ac)"
+    category: Restoration
+    direction: positive
+  - name: "Simulated: Meadow density (% area)"
+    category: Restoration
+    direction: positive
+  - name: "Simulated: Invasive plant extent"
+    category: Restoration
+    direction: negative   # more invasives = lower restoration priority
+
+  # --- Biodiversity ---
+  - name: "Simulated: Fish of concern (# spp)"
+    category: Biodiversity
+    direction: positive
+  - name: "Simulated: Rare amphibian richness"
+    category: Biodiversity
+    direction: positive
+  - name: "Simulated: Rare plant richness"
+    category: Biodiversity
+    direction: positive
+  - name: "Simulated: Aquatic connectivity"
+    category: Biodiversity
+    direction: positive
+
+  # --- Admin / regulatory ---
+  - name: "Simulated: Regulatory ease (0-5)"
+    category: Admin
+    direction: positive
+  - name: "Simulated: Federal ownership (%)"
+    category: Admin
+    direction: positive
+  - name: "Simulated: NEPA-ready area (ac)"
+    category: Admin
+    direction: positive
+  - name: "Simulated: Tribal partnership (0-5)"
+    category: Admin
+    direction: positive

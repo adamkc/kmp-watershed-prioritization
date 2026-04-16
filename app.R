@@ -23,6 +23,7 @@ source("R/input.R")
 source("R/columns.R")
 source("R/score.R")
 source("R/scenarios.R")
+source("R/metrics.R")
 
 options(shiny.maxRequestSize = 30 * 1024^2)
 
@@ -45,6 +46,7 @@ MASTER_METRICS  <- MASTER_CLASS$name[MASTER_CLASS$use_in_score]
 
 SCENARIOS       <- load_scenarios("data/scenarios.yaml")
 SCENARIO_CHECK  <- validate_scenarios(SCENARIOS, MASTER_METRICS)
+METRICS_META    <- load_metrics_meta("data/metrics.yaml")
 
 # Sub-zone catalog. "Full KMP" plus one entry per HUC4 in the zone,
 # populated from data/kmp_huc4.geojson. Eventually these will be replaced
@@ -188,6 +190,17 @@ server <- function(input, output, session) {
     compute_bin_scores(active_data(), active_classification())
   })
 
+  # Bin scores after flipping "negative"-direction metrics so that
+  # bin 5 always means "pushes this HUC toward the top of the ranking".
+  directed_bin_scores <- reactive({
+    bs <- active_bin_scores()
+    dirs <- vapply(names(bs),
+                   function(m) metric_direction(METRICS_META, m),
+                   character(1))
+    names(dirs) <- names(bs)
+    apply_directions(bs, dirs)
+  })
+
 
   # ---- Workflow UI (renders the 3-step accordion + sliders) ----------------
 
@@ -289,9 +302,21 @@ server <- function(input, output, session) {
                   if (isTRUE(zero_inf))     sprintf("%d%% zeros", zero_pct) else NULL
                 )
 
+                dir <- metric_direction(METRICS_META, nm)
+                dir_badge <- if (identical(dir, "negative")) {
+                  tags$span(
+                    title = "Lower raw value = higher priority (direction inverted)",
+                    style = "display: inline-block; background: #fef3c7;
+                             color: #92400e; font-size: 0.65rem;
+                             padding: 0 5px; border-radius: 8px;
+                             margin-left: 4px; font-weight: 600;",
+                    "\u2193 lower = better"
+                  )
+                } else NULL
+
                 div(class = "slider-row",
                   div(class = "slider-name",
-                      nm,
+                      nm, dir_badge,
                       if (length(annotations) > 0) {
                         div(class = "slider-annot",
                             paste0("\u26A0 ",
@@ -340,19 +365,50 @@ server <- function(input, output, session) {
   })
 
   # --- Custom metric list: open modal ---
+  # Metrics are grouped by category (from data/metrics.yaml) with direction
+  # indicators in each checkbox label. Per-category checkboxGroupInputs
+  # keep Shiny's built-in state management; on OK we union the values.
+  cat_input_id <- function(cat) paste0("custom_cat_", make.names(cat))
+
   observeEvent(input$pick_custom, {
     cls <- active_classification()
     metric_opts <- cls$name[cls$use_in_score]
+    grouped <- group_by_category(metric_opts, METRICS_META)
+
+    # Build one category block per non-empty group.
+    groups_ui <- lapply(names(grouped), function(cat) {
+      members <- grouped[[cat]]
+      # Labels for display: metric name + direction arrow.
+      labels <- vapply(members, function(m) {
+        d <- metric_direction(METRICS_META, m)
+        if (identical(d, "negative")) {
+          sprintf("%s  \u2193", m)
+        } else {
+          m
+        }
+      }, character(1))
+      choices <- setNames(members, labels)
+
+      tagList(
+        tags$h6(cat, class = "mt-3 mb-1 text-primary border-bottom pb-1"),
+        checkboxGroupInput(
+          cat_input_id(cat),
+          label = NULL,
+          choices = choices,
+          selected = intersect(rv$active_metrics, members)
+        )
+      )
+    })
 
     showModal(modalDialog(
       title = "Select metrics to include",
       easyClose = TRUE, size = "l",
       p(class = "text-muted small",
-        "Check the metrics you want in the composite score. Weights ",
-        "default to 1 and are adjustable in Step 3."),
-      checkboxGroupInput("custom_metrics", label = NULL,
-                         choices = metric_opts,
-                         selected = rv$active_metrics),
+        "Check the metrics you want in the composite score. ",
+        "Starting weights default to 1 and are adjustable in Step 3. ",
+        tags$span(class = "text-warning",
+                  "\u2193 = lower raw value = higher priority")),
+      tagList(groups_ui),
       footer = tagList(
         modalButton("Cancel"),
         actionButton("custom_ok", "Use selected metrics",
@@ -362,7 +418,14 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$custom_ok, {
-    chosen <- input$custom_metrics
+    cls <- active_classification()
+    metric_opts <- cls$name[cls$use_in_score]
+    grouped <- group_by_category(metric_opts, METRICS_META)
+
+    chosen <- unlist(lapply(names(grouped), function(cat) {
+      input[[cat_input_id(cat)]]
+    }))
+
     if (is.null(chosen) || length(chosen) == 0) {
       showNotification("Pick at least one metric.", type = "warning")
       return()
@@ -443,7 +506,7 @@ server <- function(input, output, session) {
   })
 
   composite <- reactive({
-    bs <- active_bin_scores(); w <- weights()
+    bs <- directed_bin_scores(); w <- weights()
     req(bs)
     if (length(w) == 0) return(rep(NA_real_, nrow(bs)))
     composite_score(bs, w)
@@ -587,13 +650,17 @@ server <- function(input, output, session) {
 
   output$ranking_table <- renderDT({
     rk <- ranking(); req(rk)
-    bs <- active_bin_scores(); req(bs)
+    bs <- directed_bin_scores(); req(bs)
     # Only include bin-score columns for currently active metrics.
     keep_cols <- intersect(rv$active_metrics, names(bs))
     bs_active <- if (length(keep_cols) > 0) bs[, keep_cols, drop = FALSE] else bs[, 0]
     datatable(
       cbind(rk, bs_active),
       rownames = FALSE,
+      caption = htmltools::tags$caption(
+        style = "caption-side: top; text-align: left; font-size: 0.8rem;
+                 color: #6c757d;",
+        "Bin scores are direction-adjusted: 5 always means 'pushes the HUC up'."),
       options = list(
         pageLength = 25, scrollX = TRUE,
         order = list(list(0, "asc")),
@@ -607,7 +674,7 @@ server <- function(input, output, session) {
       sprintf("kmp_ranking_%s.csv", format(Sys.time(), "%Y%m%d_%H%M"))
     },
     content = function(file) {
-      bs <- active_bin_scores()
+      bs <- directed_bin_scores()
       keep_cols <- intersect(rv$active_metrics, names(bs))
       bs_active <- if (length(keep_cols) > 0) bs[, keep_cols, drop = FALSE] else bs[, 0]
       write.csv(cbind(ranking(), bs_active), file, row.names = FALSE)

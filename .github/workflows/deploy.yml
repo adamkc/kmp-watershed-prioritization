@@ -14,6 +14,12 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+# Opt in to Node 24 for all actions in this workflow. Silences the
+# deprecation warning about actions still using Node 20; remove this
+# block once all referenced actions ship Node 24-native versions.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest

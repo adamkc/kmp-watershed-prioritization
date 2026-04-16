@@ -24,6 +24,7 @@ source("R/columns.R")
 source("R/score.R")
 source("R/scenarios.R")
 source("R/metrics.R")
+source("R/sensitivity.R")
 
 options(shiny.maxRequestSize = 30 * 1024^2)
 
@@ -120,6 +121,44 @@ ui <- page_sidebar(
           downloadButton("download_ranking", "Download CSV",
                          class = "btn-sm btn-outline-primary")),
       DTOutput("ranking_table")
+    ),
+
+    nav_panel(
+      title = "Sensitivity",
+      div(class = "p-2",
+        p(class = "text-muted small mb-2",
+          "Monte Carlo sensitivity: randomly perturb the current weights ",
+          "and see which rankings are robust vs. which shift with weight ",
+          "variation. Inactive metrics (weight 0) stay at 0 -- perturbation ",
+          "only moves weights you've already chosen."),
+
+        fluidRow(
+          column(3,
+            sliderInput("sens_uncertainty",
+                        "Weight uncertainty (\u00B1 %)",
+                        min = 5, max = 100, value = 30, step = 5)
+          ),
+          column(3,
+            sliderInput("sens_draws",
+                        "Number of draws",
+                        min = 100, max = 5000, value = 1000, step = 100)
+          ),
+          column(3,
+            sliderInput("sens_top_pct",
+                        "Top fraction for P(top)",
+                        min = 5, max = 50, value = 10, step = 5,
+                        post = "%")
+          ),
+          column(3,
+            tags$label("\u00A0", class = "form-label d-block"),
+            actionButton("run_sensitivity", "Run analysis",
+                         class = "btn-primary",
+                         icon = icon("rotate"))
+          )
+        ),
+
+        uiOutput("sensitivity_body")
+      )
     ),
 
     nav_panel(
@@ -692,6 +731,110 @@ server <- function(input, output, session) {
       keep_cols <- intersect(rv$active_metrics, names(bs))
       bs_active <- if (length(keep_cols) > 0) bs[, keep_cols, drop = FALSE] else bs[, 0]
       write.csv(cbind(ranking(), bs_active), file, row.names = FALSE)
+    }
+  )
+
+
+  # ---- Sensitivity tab -----------------------------------------------------
+
+  # Stored results of the last MC run. NULL means "not yet run".
+  sens_rv <- reactiveValues(results = NULL, summary = NULL)
+
+  observeEvent(input$run_sensitivity, {
+    if (length(rv$active_metrics) == 0) {
+      showNotification("Pick a scenario or metric list first.",
+                       type = "warning")
+      return()
+    }
+    bs <- directed_bin_scores()
+    w  <- weights()
+    d  <- active_data()
+
+    # Guard against all-zero weights (nothing to perturb).
+    if (!any(w > 0)) {
+      showNotification("All weights are 0 -- nothing to perturb.",
+                       type = "warning")
+      return()
+    }
+
+    withProgress(message = "Running Monte Carlo...", value = 0.3, {
+      res <- run_sensitivity(
+        bin_scores       = bs,
+        baseline_weights = w,
+        huccodes         = d$huccode,
+        uncertainty_pct  = input$sens_uncertainty,
+        n_draws          = as.integer(input$sens_draws),
+        seed             = 42L
+      )
+      incProgress(0.5, detail = "Summarizing...")
+
+      baseline_rk <- ranking()$rank
+      lname <- label_col_name()
+      disp  <- if (!is.na(lname)) d[[lname]] else rep(NA_character_, nrow(d))
+
+      summ <- sensitivity_summary(
+        results       = res,
+        display_names = disp,
+        baseline_rank = baseline_rk,
+        top_pct       = input$sens_top_pct / 100
+      )
+      incProgress(1, detail = "Done")
+
+      sens_rv$results <- res
+      sens_rv$summary <- summ
+    })
+  })
+
+  output$sensitivity_body <- renderUI({
+    if (is.null(sens_rv$results)) {
+      return(div(class = "text-muted mt-4",
+                 "No results yet. Set your parameters and click ",
+                 tags$strong("Run analysis"), "."))
+    }
+    tagList(
+      plotOutput("sens_plot", height = "620px"),
+      div(class = "d-flex justify-content-between align-items-center mt-3 mb-2",
+          h6("Per-HUC rank stability", class = "mb-0"),
+          downloadButton("sens_download", "Download CSV",
+                         class = "btn-sm btn-outline-primary")),
+      DTOutput("sens_table")
+    )
+  })
+
+  output$sens_plot <- renderPlot({
+    req(sens_rv$results, sens_rv$summary)
+    plot_rank_distribution(sens_rv$results, sens_rv$summary, limit_top = 30)
+  })
+
+  output$sens_table <- renderDT({
+    req(sens_rv$summary)
+    df <- sens_rv$summary[, c("huccode", "name", "baseline_rank",
+                              "rank_median", "rank_mean",
+                              "rank_q25", "rank_q75",
+                              "rank_min", "rank_max", "p_top")]
+    top_pct <- attr(sens_rv$summary, "top_pct")
+    top_n   <- attr(sens_rv$summary, "top_n")
+    datatable(
+      df, rownames = FALSE,
+      caption = htmltools::tags$caption(
+        style = "caption-side: top; text-align: left; font-size: 0.8rem;
+                 color: #6c757d;",
+        sprintf("p_top = fraction of draws in which this HUC landed in the top %d%% (top %d of %d HUCs).",
+                round(top_pct * 100), top_n, nrow(df))),
+      options = list(
+        pageLength = 20, scrollX = TRUE,
+        order = list(list(3, "asc")),      # sort by rank_median
+        columnDefs = list(list(className = "dt-right", targets = "_all"))
+      )
+    )
+  })
+
+  output$sens_download <- downloadHandler(
+    filename = function() {
+      sprintf("kmp_sensitivity_%s.csv", format(Sys.time(), "%Y%m%d_%H%M"))
+    },
+    content = function(file) {
+      write.csv(sens_rv$summary, file, row.names = FALSE)
     }
   )
 

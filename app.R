@@ -102,7 +102,9 @@ ui <- page_sidebar(
   title = "KMP Watershed Prioritization",
   theme = bs_theme(bootswatch = "flatly"),
 
-  tags$head(tags$style(HTML("
+  tags$head(
+    tags$title("KMP Watershed Prioritization"),
+    tags$style(HTML("
     .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
     .slider-name { width: 46%; flex-shrink: 0; font-size: 0.8rem;
                    line-height: 1.15; word-break: break-word; }

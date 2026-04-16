@@ -679,10 +679,10 @@ server <- function(input, output, session) {
   })
 
   observe({
-    # Hold back until the user has picked a scenario / metric list --
-    # otherwise HUCs render in grey on first load, confusing users.
-    req(length(rv$active_metrics) > 0)
-
+    # HUCs render as grey outlines as soon as a sub-zone is selected
+    # (Step 1), then switch to the composite-score choropleth once the
+    # user picks a scenario / metric list (Step 2). The all-NA branch
+    # below handles the grey state.
     j <- active_joined()
     req(j, !is.null(j$sf), nrow(j$sf) > 0)
     rk <- ranking(); req(rk)
@@ -699,8 +699,12 @@ server <- function(input, output, session) {
     n_huc <- sum(!is.na(sf_wgs$rank_pos))
 
     labels <- if (all_na) {
-      sprintf("<strong>%s</strong><br/><em>No weights active</em>",
-              ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm))
+      unscored_msg <- if (length(rv$active_metrics) == 0)
+        "Pick a scenario or metric list to rank."
+        else "No weights active."
+      sprintf("<strong>%s</strong><br/><em>%s</em>",
+              ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm),
+              unscored_msg)
     } else {
       sprintf("<strong>%s</strong><br/>Rank: %d of %d<br/>Score: %.2f",
               ifelse(is.na(sf_wgs$display_nm), sf_wgs$name, sf_wgs$display_nm),

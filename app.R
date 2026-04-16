@@ -26,12 +26,35 @@ slider_id <- function(column_name) {
   paste0("w_", gsub("[^A-Za-z0-9]+", "_", column_name))
 }
 
+# KMP zone outline, loaded once at app start. Always shown as a static
+# overlay so users see the study area before (and after) uploading.
+KMP_BOUNDARY <- sf::st_read("data/kmp_boundary.geojson", quiet = TRUE)
+KMP_BBOX     <- sf::st_bbox(KMP_BOUNDARY)
+
 
 # --- UI ----------------------------------------------------------------------
 
 ui <- page_sidebar(
   title = "KMP Watershed Prioritization",
   theme = bs_theme(bootswatch = "flatly"),
+
+  # Compact slider row layout: wrapped label on the left, slider on
+  # the right. Shiny's built-in sliderInput label is hidden since we
+  # render the metric name ourselves.
+  tags$head(tags$style(HTML("
+    .slider-row { display: flex; align-items: center; gap: 10px;
+                  margin-bottom: 2px; }
+    .slider-name { width: 46%; flex-shrink: 0; font-size: 0.8rem;
+                   line-height: 1.15; word-break: break-word; }
+    .slider-annot { font-size: 0.68rem; color: #b45309; margin-top: 2px; }
+    .slider-control { flex: 1; min-width: 0; }
+    .slider-control .form-group { margin-bottom: 0; }
+    .slider-control label.control-label { display: none; }
+    .slider-control .irs { margin-top: 0; margin-bottom: 0; }
+    .slider-control .irs--shiny .irs-single,
+    .slider-control .irs--shiny .irs-min,
+    .slider-control .irs--shiny .irs-max { font-size: 0.68rem; }
+  "))),
 
   sidebar = sidebar(
     width = 360,
@@ -140,10 +163,13 @@ server <- function(input, output, session) {
 
     tagList(
       tags$hr(),
-      div(class = "d-flex justify-content-between align-items-center mb-2",
-          tags$strong(sprintf("Weights (%d metrics)", nrow(scoring))),
-          actionButton("reset_weights", "Reset",
-                       class = "btn-sm btn-outline-secondary")),
+      div(class = "mb-2",
+          tags$strong(sprintf("Weights (%d metrics)", nrow(scoring)))),
+      div(class = "d-flex gap-2 mb-3",
+          actionButton("weights_all_1", "All to 1",
+                       class = "btn-sm btn-outline-secondary flex-fill"),
+          actionButton("weights_all_0", "All to 0",
+                       class = "btn-sm btn-outline-secondary flex-fill")),
 
       lapply(seq_len(nrow(scoring)), function(i) {
         nm <- scoring$name[i]
@@ -154,30 +180,36 @@ server <- function(input, output, session) {
           round(100 * scoring$n_zero[i] / scoring$n[i]) else 0
 
         annotations <- c(
-          if (n_miss > 0)  sprintf("%d HUCs missing", n_miss) else NULL,
+          if (n_miss > 0)  sprintf("%d missing", n_miss) else NULL,
           if (zero_inf)    sprintf("%d%% zeros", zero_pct) else NULL
         )
 
-        div(class = "mb-1",
-          sliderInput(sid, label = nm, min = 0, max = 5,
-                      value = 1, step = 0.1, width = "100%"),
-          if (length(annotations) > 0) {
-            div(style = "font-size: 0.72rem; color: #b45309; margin-top: -10px; margin-bottom: 6px;",
-                paste("\u26A0", paste(annotations, collapse = "  \u00B7  ")))
-          }
+        # Two-column layout: wrapped label on the left, compact slider on
+        # the right. The slider's label arg is suppressed so we can
+        # render the name once with annotations beneath it.
+        div(class = "slider-row",
+          div(class = "slider-name",
+              nm,
+              if (length(annotations) > 0) {
+                div(class = "slider-annot",
+                    paste0("\u26A0 ", paste(annotations, collapse = "  \u00B7  ")))
+              }),
+          div(class = "slider-control",
+              sliderInput(sid, label = NULL, min = 0, max = 5,
+                          value = 1, step = 0.1, width = "100%"))
         )
       })
     )
   })
 
-  observeEvent(input$reset_weights, {
-    cls <- classification()
-    req(cls)
-    scoring <- cls[cls$use_in_score, ]
-    for (nm in scoring$name) {
-      updateSliderInput(session, slider_id(nm), value = 1)
+  apply_uniform_weight <- function(val) {
+    cls <- classification(); req(cls)
+    for (nm in cls$name[cls$use_in_score]) {
+      updateSliderInput(session, slider_id(nm), value = val)
     }
-  })
+  }
+  observeEvent(input$weights_all_1, apply_uniform_weight(1))
+  observeEvent(input$weights_all_0, apply_uniform_weight(0))
 
   weights <- reactive({
     cls <- classification(); req(cls)
@@ -251,7 +283,17 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     leaflet() |>
       addProviderTiles("CartoDB.Positron") |>
-      setView(lng = -122.8, lat = 41.7, zoom = 9)
+      addPolygons(
+        data = KMP_BOUNDARY,
+        group = "kmp_boundary",
+        fill = TRUE, fillColor = "#e9ecef", fillOpacity = 0.25,
+        color = "#1f4f8b", weight = 2, opacity = 0.85,
+        label = "KMP zone"
+      ) |>
+      fitBounds(
+        lng1 = KMP_BBOX[["xmin"]], lat1 = KMP_BBOX[["ymin"]],
+        lng2 = KMP_BBOX[["xmax"]], lat2 = KMP_BBOX[["ymax"]]
+      )
   })
 
   observe({
@@ -278,14 +320,24 @@ server <- function(input, output, session) {
       sf_wgs$rank_pos, n_huc, sf_wgs$composite
     ) |> lapply(htmltools::HTML)
 
-    leafletProxy("map") |>
-      clearShapes() |>
+    # Top-3 HUCs (handles ties via rank <= 3). Use point-on-surface so
+    # the label is guaranteed inside irregular polygons.
+    top3_mask <- !is.na(sf_wgs$rank_pos) & sf_wgs$rank_pos <= 3
+    top3 <- sf_wgs[top3_mask, ]
+    top3_pts <- if (nrow(top3) > 0) {
+      suppressWarnings(sf::st_point_on_surface(top3))
+    } else NULL
+
+    proxy <- leafletProxy("map") |>
+      clearGroup("hucs") |>
+      clearGroup("top3") |>
       clearControls() |>
       addPolygons(
         data = sf_wgs,
+        group = "hucs",
         weight = 1, color = "#333",
         fillColor = ~pal(composite),
-        fillOpacity = 0.75,
+        fillOpacity = 0.8,
         label = labels,
         labelOptions = labelOptions(direction = "auto", textsize = "12px"),
         highlightOptions = highlightOptions(
@@ -303,6 +355,27 @@ server <- function(input, output, session) {
         lng2 = sf::st_bbox(sf_wgs)[["xmax"]],
         lat2 = sf::st_bbox(sf_wgs)[["ymax"]]
       )
+
+    if (!is.null(top3_pts) && nrow(top3_pts) > 0) {
+      proxy |> addLabelOnlyMarkers(
+        data = top3_pts,
+        group = "top3",
+        label = sprintf("#%d", top3$rank_pos),
+        labelOptions = labelOptions(
+          noHide = TRUE, direction = "center", textOnly = FALSE,
+          style = list(
+            "font-size"    = "13px",
+            "font-weight"  = "700",
+            "color"        = "#111",
+            "padding"      = "2px 7px",
+            "background"   = "rgba(255,255,255,0.95)",
+            "border"       = "1px solid #333",
+            "border-radius"= "11px",
+            "box-shadow"   = "0 1px 2px rgba(0,0,0,0.25)"
+          )
+        )
+      )
+    }
   })
 
 

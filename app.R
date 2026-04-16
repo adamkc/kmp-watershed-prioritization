@@ -168,7 +168,7 @@ ui <- page_sidebar(
           "only moves weights you've already chosen."),
 
         fluidRow(
-          column(3,
+          column(4,
             sliderInput("sens_uncertainty",
               label = tagList(
                 "Weight uncertainty (\u00B1 %)",
@@ -177,7 +177,7 @@ ui <- page_sidebar(
               ),
               min = 5, max = 100, value = 30, step = 5)
           ),
-          column(3,
+          column(4,
             sliderInput("sens_draws",
               label = tagList(
                 "Number of draws",
@@ -186,16 +186,7 @@ ui <- page_sidebar(
               ),
               min = 100, max = 5000, value = 1000, step = 100)
           ),
-          column(3,
-            sliderInput("sens_top_pct",
-              label = tagList(
-                "Top fraction for P(top)",
-                help_icon(
-                  "Defines what 'top' means when computing P(top). At 10%, P(top) is the fraction of draws in which a HUC landed in the top 10% of all HUCs. Lower values make the stability threshold stricter.")
-              ),
-              min = 5, max = 50, value = 10, step = 5, post = "%")
-          ),
-          column(3,
+          column(4,
             tags$label("\u00A0", class = "form-label d-block"),
             actionButton("run_sensitivity", "Run analysis",
                          class = "btn-primary",
@@ -839,7 +830,7 @@ server <- function(input, output, session) {
         results       = res,
         display_names = disp,
         baseline_rank = baseline_rk,
-        top_pct       = input$sens_top_pct / 100
+        top_pct       = 0.10      # fixed: top 10% defines "top" for P(top)
       )
       incProgress(1, detail = "Done")
 

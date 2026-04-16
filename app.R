@@ -46,13 +46,31 @@ MASTER_METRICS  <- MASTER_CLASS$name[MASTER_CLASS$use_in_score]
 SCENARIOS       <- load_scenarios("data/scenarios.yaml")
 SCENARIO_CHECK  <- validate_scenarios(SCENARIOS, MASTER_METRICS)
 
-# Sub-zone catalog. Single entry for now -- room to add KMP sub-units later.
-SUBZONES <- list(
-  list(id = "full_kmp", name = "Full KMP", description = "All HUC12s in the KMP zone.")
+# Sub-zone catalog. "Full KMP" plus one entry per HUC4 in the zone,
+# populated from data/kmp_huc4.geojson. Eventually these will be replaced
+# by geology-based sub-zones; for now HUC4 makes a useful demonstration.
+HUC4_BOUNDARIES <- sf::st_read("data/kmp_huc4.geojson", quiet = TRUE)
+HUC4_BOUNDARIES <- HUC4_BOUNDARIES[order(HUC4_BOUNDARIES$huc4), ]
+
+SUBZONES <- c(
+  list(list(
+    id = "full_kmp",
+    name = "Full KMP",
+    description = "All HUCs in the KMP zone."
+  )),
+  lapply(seq_len(nrow(HUC4_BOUNDARIES)), function(i) {
+    h4  <- as.character(HUC4_BOUNDARIES$huc4[i])
+    nm  <- HUC4_BOUNDARIES$name[i]
+    list(
+      id = h4,
+      name = sprintf("%s (HUC4 %s)", nm, h4),
+      description = sprintf("HUCs within HUC4 %s (%s).", h4, nm)
+    )
+  })
 )
 SUBZONE_CHOICES <- setNames(
-  sapply(SUBZONES, `[[`, "id"),
-  sapply(SUBZONES, `[[`, "name")
+  vapply(SUBZONES, `[[`, character(1), "id"),
+  vapply(SUBZONES, `[[`, character(1), "name")
 )
 
 
@@ -134,11 +152,17 @@ server <- function(input, output, session) {
   # ---- Active dataset (master by default; uploaded replaces it) ------------
 
   active_data <- reactive({
-    if (identical(rv$source_type, "upload") && !is.null(rv$uploaded)) {
+    src <- if (identical(rv$source_type, "upload") && !is.null(rv$uploaded)) {
       rv$uploaded$data
     } else {
       MASTER_DATA
     }
+    if (identical(rv$subzone_id, "full_kmp")) return(src)
+
+    # Otherwise rv$subzone_id is a 4-digit HUC4 code. HUC codes are
+    # hierarchical: a HUC10 (or HUC12) within HUC4 "1801" starts "1801".
+    keep <- substr(src$huccode, 1, 4) == rv$subzone_id
+    src[keep, , drop = FALSE]
   })
 
   active_huc_level <- reactive({
@@ -465,6 +489,10 @@ server <- function(input, output, session) {
   })
 
   observe({
+    # Hold back until the user has picked a scenario / metric list --
+    # otherwise HUCs render in grey on first load, confusing users.
+    req(length(rv$active_metrics) > 0)
+
     j <- active_joined()
     req(j, !is.null(j$sf), nrow(j$sf) > 0)
     rk <- ranking(); req(rk)

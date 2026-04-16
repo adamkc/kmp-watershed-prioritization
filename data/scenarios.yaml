@@ -2,49 +2,64 @@
 #
 # Each scenario defines a named set of metrics and their starting
 # weights. Metric names MUST match column names in the master data
-# file (data/kmp_metrics.csv) exactly -- spaces and case matter.
+# file (data/kmp_metrics.csv) exactly -- spaces, punctuation, and
+# case all matter.
 #
 # Edit this file to add, remove, or tune scenarios. The app loads
 # this at startup; no code changes required.
 #
-# Weights can be any non-negative number; the app normalizes by
-# dividing by the weight sum during composite scoring, so relative
-# magnitudes are what matter. Convention: 1 = nominal importance,
-# 5 = dominates, 0.333 = three sibling metrics share the weight of
-# one primary metric.
+# NOTE: the metrics referenced below are from the *simulated*
+# development dataset (20 metrics at HUC10 scale, prefixed with
+# "Simulated:"). Replace with real metric names when the production
+# master data is assembled.
 
 scenarios:
 
   - id: kmp_general
     name: KMP General Scenario
     description: >
-      Balanced prioritization mirroring the KMP working group's v1
-      weights across hydrology, biodiversity, meadow condition, and
-      land management. Meadow NEPA clearance dominates (weight 5)
-      to surface shovel-ready sub-watersheds first.
+      Balanced prioritization across categories: fire risk/opportunity,
+      climate resilience, restoration potential, biodiversity, and
+      administrative readiness. A reasonable starting point when no
+      single theme dominates.
     weights:
-      "SUM of ConnRankAveByArea": 1
-      "SUM of RareAmphAveByArea": 0.333
-      "SUM of RarePlantAveByArea": 0.333
-      "Apr1SWE": 1
-      "Coho score": 0.333
-      "Inventoried MdwPercent (/100)": 1
-      "MdwNEPA percent": 5
-      "Fire percent": 1
-      "EFM percent": 1
-      "Federal Land Percent": 1
+      "Simulated: Recent fire (% area, 10yr)": 1
+      "Simulated: Climate resiliency index": 1
+      "Simulated: Climate refugia score": 1
+      "Simulated: Lost meadow potential": 2
+      "Simulated: Meadow density (% area)": 1
+      "Simulated: Fish of concern (# spp)": 1
+      "Simulated: Rare amphibian richness": 0.5
+      "Simulated: Rare plant richness": 0.5
+      "Simulated: Federal ownership (%)": 1
+      "Simulated: NEPA-ready area (ac)": 2
 
   - id: kmp_fire
     name: KMP Fire Scenario
     description: >
-      PLACEHOLDER fire-focused weighting. Elevates recent-burn meadow
-      restoration opportunity and existing meadow extent. Refine
-      once the KMP working group finalizes fire-specific criteria.
+      Fire-focused prioritization. Elevates recent fire, unburned
+      stands overdue for disturbance, and fire-return-interval
+      departure, paired with administrative readiness so surfaced
+      HUCs can actually be treated.
     weights:
-      "Fire percent": 5
-      "MdwNEPA percent": 3
-      "Inventoried MdwPercent (/100)": 2
-      "Apr1SWE": 1
-      "SUM of ConnRankAveByArea": 1
-      "Federal Land Percent": 1
-      "Coho score": 0.5
+      "Simulated: Recent fire (% area, 10yr)": 3
+      "Simulated: Unburned 30yr (%)": 2
+      "Simulated: Fire return departure": 2
+      "Simulated: High severity fire (% area)": 1
+      "Simulated: NEPA-ready area (ac)": 2
+      "Simulated: Federal ownership (%)": 1
+      "Simulated: Regulatory ease (0-5)": 1
+
+  - id: kmp_climate_refuge
+    name: KMP Climate Refuge Scenario
+    description: >
+      Climate-focused prioritization. Elevates climate resiliency and
+      refugia, snow persistence, and inverse summer water stress --
+      HUCs expected to remain viable habitat under warming trends.
+    weights:
+      "Simulated: Climate resiliency index": 3
+      "Simulated: Climate refugia score": 3
+      "Simulated: Snow persistence": 2
+      "Simulated: Summer water stress": 1
+      "Simulated: Meadow density (% area)": 1
+      "Simulated: Aquatic connectivity": 1

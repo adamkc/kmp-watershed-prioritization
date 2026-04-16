@@ -1,0 +1,45 @@
+# R
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Ruserdata
+.Rproj.user/
+*.Rproj
+.Renviron
+.Rprofile
+
+# renv (track lockfile, ignore the library)
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
+
+# Python (in case we add a Pyodide/shinylive-python variant later)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Claude Code (keep shared settings, ignore per-user)
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Build / deploy artifacts
+_site/
+site_libs/
+shinylive/
+docs/_site/
+
+# Logs
+*.log
+
+# Local user data (do not commit user CSVs uploaded for testing)
+data/user_uploads/

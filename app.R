@@ -279,11 +279,19 @@ server <- function(input, output, session) {
               "Pick a scenario or metric list in Step 2 to see sliders here.")
           } else {
             tagList(
-              div(class = "d-flex gap-2 mb-3",
+              div(class = "d-flex gap-2 mb-2",
                   actionButton("weights_all_1", "All to 1",
                                class = "btn-sm btn-outline-secondary flex-fill"),
                   actionButton("weights_all_0", "All to 0",
                                class = "btn-sm btn-outline-secondary flex-fill")),
+
+              div(class = "small text-muted mb-3",
+                  style = "line-height: 1.25;",
+                  "Arrows show how each metric's raw value maps to priority: ",
+                  tags$span(style = "color: #dc2626; font-weight: 700;", "\u2191"),
+                  " high raw value \u2192 high score; ",
+                  tags$span(style = "color: #dc2626; font-weight: 700;", "\u2193"),
+                  " low raw value \u2192 high score."),
 
               lapply(rv$active_metrics, function(nm) {
                 sid <- slider_id(nm)
@@ -303,16 +311,16 @@ server <- function(input, output, session) {
                 )
 
                 dir <- metric_direction(METRICS_META, nm)
-                dir_badge <- if (identical(dir, "negative")) {
-                  tags$span(
-                    title = "Lower raw value = higher priority (direction inverted)",
-                    style = "display: inline-block; background: #fef3c7;
-                             color: #92400e; font-size: 0.65rem;
-                             padding: 0 5px; border-radius: 8px;
-                             margin-left: 4px; font-weight: 600;",
-                    "\u2193 lower = better"
-                  )
-                } else NULL
+                is_neg <- identical(dir, "negative")
+                arrow  <- if (is_neg) "\u2193" else "\u2191"
+                arrow_title <- if (is_neg)
+                  "Low raw values in this metric map to high priority scores."
+                  else "High raw values in this metric map to high priority scores."
+                dir_badge <- tags$span(
+                  title = arrow_title,
+                  style = "color: #dc2626; font-weight: 700; margin-left: 4px;",
+                  arrow
+                )
 
                 div(class = "slider-row",
                   div(class = "slider-name",
@@ -378,23 +386,26 @@ server <- function(input, output, session) {
     # Build one category block per non-empty group.
     groups_ui <- lapply(names(grouped), function(cat) {
       members <- grouped[[cat]]
-      # Labels for display: metric name + direction arrow.
-      labels <- vapply(members, function(m) {
+      # Labels are HTML so the direction arrow can be colored red.
+      label_tags <- lapply(members, function(m) {
         d <- metric_direction(METRICS_META, m)
-        if (identical(d, "negative")) {
-          sprintf("%s  \u2193", m)
-        } else {
+        arrow <- if (identical(d, "negative")) "\u2193" else "\u2191"
+        tags$span(
+          tags$span(arrow,
+                    style = "color: #dc2626; font-weight: 700;
+                             display: inline-block; width: 1em;
+                             margin-right: 6px;"),
           m
-        }
-      }, character(1))
-      choices <- setNames(members, labels)
+        )
+      })
 
       tagList(
         tags$h6(cat, class = "mt-3 mb-1 text-primary border-bottom pb-1"),
         checkboxGroupInput(
           cat_input_id(cat),
           label = NULL,
-          choices = choices,
+          choiceNames  = label_tags,
+          choiceValues = as.list(members),
           selected = intersect(rv$active_metrics, members)
         )
       )
@@ -403,11 +414,14 @@ server <- function(input, output, session) {
     showModal(modalDialog(
       title = "Select metrics to include",
       easyClose = TRUE, size = "l",
-      p(class = "text-muted small",
+      p(class = "text-muted small mb-1",
         "Check the metrics you want in the composite score. ",
-        "Starting weights default to 1 and are adjustable in Step 3. ",
-        tags$span(class = "text-warning",
-                  "\u2193 = lower raw value = higher priority")),
+        "Starting weights default to 1 and are adjustable in Step 3."),
+      p(class = "small mb-2",
+        tags$span(style = "color: #dc2626; font-weight: 700;", "\u2191"),
+        " means high raw value \u2192 high score; ",
+        tags$span(style = "color: #dc2626; font-weight: 700;", "\u2193"),
+        " means low raw value \u2192 high score."),
       tagList(groups_ui),
       footer = tagList(
         modalButton("Cancel"),

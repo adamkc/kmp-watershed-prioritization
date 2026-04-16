@@ -67,11 +67,12 @@ SCENARIOS       <- load_scenarios("data/scenarios.yaml")
 SCENARIO_CHECK  <- validate_scenarios(SCENARIOS, MASTER_METRICS)
 METRICS_META    <- load_metrics_meta("data/metrics.yaml")
 
-# Sub-zone catalog. "Full KMP" plus one entry per HUC4 in the zone,
-# populated from data/kmp_huc4.geojson. Eventually these will be replaced
-# by geology-based sub-zones; for now HUC4 makes a useful demonstration.
-HUC4_BOUNDARIES <- sf::st_read("data/kmp_huc4.geojson", quiet = TRUE)
-HUC4_BOUNDARIES <- HUC4_BOUNDARIES[order(HUC4_BOUNDARIES$huc4), ]
+# Sub-zone catalog. "Full KMP" plus one entry per HUC6 in the zone,
+# populated from data/kmp_huc6.geojson. These are placeholders -- the
+# KMP working group will eventually define geology- / ecology-based
+# analysis zones that replace the HUC6 units.
+HUC6_BOUNDARIES <- sf::st_read("data/kmp_huc6.geojson", quiet = TRUE)
+HUC6_BOUNDARIES <- HUC6_BOUNDARIES[order(HUC6_BOUNDARIES$huc6), ]
 
 SUBZONES <- c(
   list(list(
@@ -79,13 +80,13 @@ SUBZONES <- c(
     name = "Full KMP",
     description = "All HUCs in the KMP zone."
   )),
-  lapply(seq_len(nrow(HUC4_BOUNDARIES)), function(i) {
-    h4  <- as.character(HUC4_BOUNDARIES$huc4[i])
-    nm  <- HUC4_BOUNDARIES$name[i]
+  lapply(seq_len(nrow(HUC6_BOUNDARIES)), function(i) {
+    h6  <- as.character(HUC6_BOUNDARIES$huc6[i])
+    nm  <- HUC6_BOUNDARIES$name[i]
     list(
-      id = h4,
-      name = sprintf("%s (HUC4 %s)", nm, h4),
-      description = sprintf("HUCs within HUC4 %s (%s).", h4, nm)
+      id = h6,
+      name = sprintf("%s (HUC6 %s)", nm, h6),
+      description = sprintf("HUCs within HUC6 %s (%s).", h6, nm)
     )
   })
 )
@@ -256,9 +257,12 @@ server <- function(input, output, session) {
     }
     if (identical(rv$subzone_id, "full_kmp")) return(src)
 
-    # Otherwise rv$subzone_id is a 4-digit HUC4 code. HUC codes are
-    # hierarchical: a HUC10 (or HUC12) within HUC4 "1801" starts "1801".
-    keep <- substr(src$huccode, 1, 4) == rv$subzone_id
+    # Otherwise rv$subzone_id is a HUC code at some level (currently
+    # HUC6). HUC IDs are hierarchical, so a HUC10 within HUC6 "180102"
+    # starts with "180102". Use the subzone length so this keeps
+    # working if we swap to a different HUC level later.
+    n <- nchar(rv$subzone_id)
+    keep <- substr(src$huccode, 1, n) == rv$subzone_id
     src[keep, , drop = FALSE]
   })
 
@@ -323,9 +327,9 @@ server <- function(input, output, session) {
                       choices = SUBZONE_CHOICES,
                       selected = rv$subzone_id, width = "100%"),
           p(class = "text-muted small mb-0",
-            "Sub-zones narrow the analysis to a specific portion of the KMP ",
-            "zone. For now the only option is Full KMP; more will be added ",
-            "as they are defined.")
+            "HUC6 sub-zones shown here are a temporary placeholder ",
+            "while the KMP working group defines geological / ",
+            "ecological analysis zones.")
         ),
 
         # --- Step 2: metrics source ---
@@ -388,7 +392,7 @@ server <- function(input, output, session) {
                   "Arrows show how each metric's raw value maps to priority: ",
                   tags$span(style = "color: #dc2626; font-weight: 700;", "\u2191"),
                   " high raw value \u2192 high score; ",
-                  tags$span(style = "color: #dc2626; font-weight: 700;", "\u2193"),
+                  tags$span(style = "color: #1f4f8b; font-weight: 700;", "\u2193"),
                   " low raw value \u2192 high score."),
 
               lapply(rv$active_metrics, function(nm) {
@@ -411,12 +415,14 @@ server <- function(input, output, session) {
                 dir <- metric_direction(METRICS_META, nm)
                 is_neg <- identical(dir, "negative")
                 arrow  <- if (is_neg) "\u2193" else "\u2191"
+                arrow_color <- if (is_neg) "#1f4f8b" else "#dc2626"
                 arrow_title <- if (is_neg)
                   "Low raw values in this metric map to high priority scores."
                   else "High raw values in this metric map to high priority scores."
                 dir_badge <- tags$span(
                   title = arrow_title,
-                  style = "color: #dc2626; font-weight: 700; margin-left: 4px;",
+                  style = sprintf("color: %s; font-weight: 700; margin-left: 4px;",
+                                  arrow_color),
                   arrow
                 )
 
@@ -484,15 +490,19 @@ server <- function(input, output, session) {
     # Build one category block per non-empty group.
     groups_ui <- lapply(names(grouped), function(cat) {
       members <- grouped[[cat]]
-      # Labels are HTML so the direction arrow can be colored red.
+      # Labels are HTML so the direction arrow can be colored by
+      # direction (up = red, down = blue).
       label_tags <- lapply(members, function(m) {
         d <- metric_direction(METRICS_META, m)
-        arrow <- if (identical(d, "negative")) "\u2193" else "\u2191"
+        is_neg <- identical(d, "negative")
+        arrow  <- if (is_neg) "\u2193" else "\u2191"
+        color  <- if (is_neg) "#1f4f8b" else "#dc2626"
         tags$span(
           tags$span(arrow,
-                    style = "color: #dc2626; font-weight: 700;
-                             display: inline-block; width: 1em;
-                             margin-right: 6px;"),
+                    style = sprintf(
+                      "color: %s; font-weight: 700;
+                       display: inline-block; width: 1em;
+                       margin-right: 6px;", color)),
           m
         )
       })
@@ -518,7 +528,7 @@ server <- function(input, output, session) {
       p(class = "small mb-2",
         tags$span(style = "color: #dc2626; font-weight: 700;", "\u2191"),
         " means high raw value \u2192 high score; ",
-        tags$span(style = "color: #dc2626; font-weight: 700;", "\u2193"),
+        tags$span(style = "color: #1f4f8b; font-weight: 700;", "\u2193"),
         " means low raw value \u2192 high score."),
       tagList(groups_ui),
       footer = tagList(

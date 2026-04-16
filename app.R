@@ -138,6 +138,16 @@ ui <- page_sidebar(
 
   sidebar = sidebar(
     width = 380,
+
+    div(class = "alert alert-warning py-2 px-3 mb-3",
+        style = "font-size: 0.78rem; line-height: 1.35;",
+        tags$strong("Demo deployment \u2014 simulated data."),
+        tags$br(),
+        "The 20 metrics in the master table are randomly generated for ",
+        "development and deployment testing. Rankings shown here are ",
+        "illustrative only and should not inform real prioritization ",
+        "decisions."),
+
     uiOutput("workflow_ui")
   ),
 

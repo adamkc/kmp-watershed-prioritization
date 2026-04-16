@@ -438,9 +438,25 @@ server <- function(input, output, session) {
                   arrow
                 )
 
+                # Wrap the metric name in a bslib tooltip when a description
+                # exists. Dotted underline is a subtle hoverability hint.
+                desc <- metric_description(METRICS_META, nm)
+                name_el <- if (nzchar(desc)) {
+                  bslib::tooltip(
+                    tags$span(
+                      style = "border-bottom: 1px dotted #6c757d; cursor: help;",
+                      nm
+                    ),
+                    desc,
+                    placement = "right"
+                  )
+                } else {
+                  nm
+                }
+
                 div(class = "slider-row",
                   div(class = "slider-name",
-                      nm, dir_badge,
+                      name_el, dir_badge,
                       if (length(annotations) > 0) {
                         div(class = "slider-annot",
                             paste0("\u26A0 ",

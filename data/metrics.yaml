@@ -1,19 +1,22 @@
-# Metric metadata: category + direction for every metric in the master
-# data file (data/kmp_metrics.csv).
+# Metric metadata: category, direction, and hover description for every
+# metric in the master data file (data/kmp_metrics.csv).
 #
-#   category  -- used to group metrics in the custom picker modal
-#   direction -- "positive" if a higher raw value means higher priority
-#                "negative" if a lower raw value means higher priority
+#   category    -- groups metrics in the custom picker modal
+#   direction   -- "positive" if a higher raw value means higher priority;
+#                  "negative" if a lower raw value means higher priority
+#   description -- hover tooltip text shown on slider labels in Step 3
 #
-# The scoring pipeline computes Jenks/ordinal bin scores, then inverts
-# them for "negative"-direction metrics so that "bin 5" always means
-# "this metric pushes this HUC toward the top of the ranking".
+# The scoring pipeline computes Jenks / ordinal bin scores, then inverts
+# them for "negative"-direction metrics so "bin 5" always means "pushes
+# this HUC toward the top of the ranking".
 #
-# Metrics not listed here default to direction: positive, category: Other.
-# Scenarios inherit the direction declared here; per-scenario overrides
-# can be added later if needed.
+# Metrics not listed here default to direction: positive, category: Other,
+# description: (empty). Unlisted metrics render as plain slider labels
+# with no tooltip.
+#
+# NOTE: descriptions below are PLACEHOLDERS for the simulated demo
+# dataset. Replace with accurate definitions when real metrics land.
 
-# Category display order -- unlisted categories fall to the end.
 category_order:
   - Fire
   - Climate
@@ -27,68 +30,146 @@ metrics:
   - name: "Simulated: Recent fire (% area, 10yr)"
     category: Fire
     direction: positive
+    description: >
+      Fraction of the HUC that burned in the last 10 years. Higher values
+      indicate recent disturbance and active restoration opportunity.
+
   - name: "Simulated: Unburned 30yr (%)"
     category: Fire
     direction: positive
+    description: >
+      Fraction of the HUC that has not burned in 30+ years. High values may
+      indicate fire-suppressed stands in need of prescribed fire or thinning.
+
   - name: "Simulated: Fire return departure"
     category: Fire
     direction: positive
+    description: >
+      Deviation from the historical fire-return interval. Positive values mean
+      the HUC is overdue for fire; negative values mean fire has been more
+      frequent than expected.
+
   - name: "Simulated: High severity fire (% area)"
     category: Fire
     direction: positive
+    description: >
+      Fraction burned at high severity (greater than 75% canopy mortality) in
+      recent fires. Flags areas needing active post-fire intervention.
 
   # --- Climate ---
   - name: "Simulated: Climate resiliency index"
     category: Climate
     direction: positive
+    description: >
+      Composite index combining topographic diversity, microclimate
+      variability, and species-assemblage redundancy. Higher = more resilient
+      to climate change.
+
   - name: "Simulated: Climate refugia score"
     category: Climate
     direction: positive
+    description: >
+      Likelihood of persistent suitable habitat under projected climate
+      change. Higher values mark stronger climate refugia.
+
   - name: "Simulated: Snow persistence"
     category: Climate
     direction: positive
+    description: >
+      Average fraction of the year with snow cover on the ground. High values
+      indicate reliable snowpack-dependent hydrology.
+
   - name: "Simulated: Summer water stress"
     category: Climate
-    direction: negative   # more stress = lower restoration priority
+    direction: negative
+    description: >
+      Water deficit during July to September. High values indicate
+      drought-stressed conditions, reducing restoration suitability.
 
   # --- Restoration ---
   - name: "Simulated: Lost meadow potential"
     category: Restoration
     direction: positive
+    description: >
+      Modeled acreage of historically wet meadow now converted to drier
+      systems. Higher values indicate larger recovery opportunity.
+
   - name: "Simulated: Riparian restoration (ac)"
     category: Restoration
     direction: positive
+    description: >
+      Acres identified as candidates for riparian treatment (bank repair,
+      vegetation recovery, beaver dam analogs, etc.).
+
   - name: "Simulated: Meadow density (% area)"
     category: Restoration
     direction: positive
+    description: >
+      Fraction of the HUC classified as meadow habitat. Higher density means
+      larger treatment footprint per unit effort.
+
   - name: "Simulated: Invasive plant extent"
     category: Restoration
-    direction: negative   # more invasives = lower restoration priority
+    direction: negative
+    description: >
+      Fraction of the HUC with mapped invasive plant populations. High values
+      complicate and raise the cost of restoration treatment.
 
   # --- Biodiversity ---
   - name: "Simulated: Fish of concern (# spp)"
     category: Biodiversity
     direction: positive
+    description: >
+      Count of federally or state-listed fish species documented in the HUC.
+      More species under listing = higher conservation priority.
+
   - name: "Simulated: Rare amphibian richness"
     category: Biodiversity
     direction: positive
+    description: >
+      Count of rare amphibian species documented in the HUC. Amphibians are
+      sensitive restoration indicators.
+
   - name: "Simulated: Rare plant richness"
     category: Biodiversity
     direction: positive
+    description: >
+      Count of rare vascular plant species documented in the HUC. High values
+      reflect botanically significant sites.
+
   - name: "Simulated: Aquatic connectivity"
     category: Biodiversity
     direction: positive
+    description: >
+      Index of upstream-downstream connectivity for aquatic species movement.
+      Higher = less fragmented by barriers such as culverts and diversions.
 
   # --- Admin / regulatory ---
   - name: "Simulated: Regulatory ease (0-5)"
     category: Admin
     direction: positive
+    description: >
+      Ordinal score of regulatory complexity, reflecting jurisdictional
+      boundaries and permit pathways. Higher = simpler to permit.
+
   - name: "Simulated: Federal ownership (%)"
     category: Admin
     direction: positive
+    description: >
+      Fraction of the HUC on federal land (USFS, BLM, NPS, etc.). High values
+      enable federal-partner restoration pathways.
+
   - name: "Simulated: NEPA-ready area (ac)"
     category: Admin
     direction: positive
+    description: >
+      Acres already covered by completed NEPA review and available for
+      immediate treatment. HUCs with existing clearance are 'shovel-ready'.
+
   - name: "Simulated: Tribal partnership (0-5)"
     category: Admin
     direction: positive
+    description: >
+      Ordinal score for established tribal co-management interest and
+      existing partnership agreements. Higher = stronger partnership
+      potential.

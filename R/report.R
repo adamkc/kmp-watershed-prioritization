@@ -6,9 +6,88 @@
 
 # Placeholder strings inserted by build_report_md() where charts go.
 # Each renderer (inline / .md / .html) replaces these with its own
-# version of the chart (or nothing).
+# version of the chart (or nothing). Order in the report: MAP first
+# (as the spatial headline), then RANKING (bar chart), then
+# SENSITIVITY (rank distribution). Keep this order in sync with
+# placement inside build_report_md().
+PLACEHOLDER_CHART_MAP         <- "__CHART_MAP__"
 PLACEHOLDER_CHART_RANKING     <- "__CHART_RANKING__"
 PLACEHOLDER_CHART_SENSITIVITY <- "__CHART_SENSITIVITY__"
+
+
+#' Static choropleth map of composite scores by HUC, with KMP zone
+#' outline and top-N rank badges.
+#'
+#' Returns a ggplot object, or NULL if there is nothing to map (no
+#' active metrics, no joined geometry, or all-NA composite).
+make_prioritization_map <- function(joined_sf,
+                                    kmp_boundary,
+                                    ranking_df,
+                                    huc_level,
+                                    top_n = 3) {
+  if (is.null(joined_sf) || is.null(ranking_df)) return(NULL)
+  if (nrow(joined_sf) == 0 || nrow(ranking_df) == 0) return(NULL)
+
+  huc_col <- paste0("huc", huc_level)
+  joined_sf <- sf::st_transform(joined_sf, 4326)
+  idx <- match(joined_sf[[huc_col]], ranking_df$huccode)
+  joined_sf$composite <- ranking_df$score[idx]
+  joined_sf$rank_pos  <- ranking_df$rank[idx]
+
+  if (all(is.na(joined_sf$composite))) return(NULL)
+
+  top_mask <- !is.na(joined_sf$rank_pos) & joined_sf$rank_pos <= top_n
+  top_sf   <- joined_sf[top_mask, , drop = FALSE]
+  top_pts  <- if (nrow(top_sf) > 0) {
+    suppressWarnings(sf::st_point_on_surface(top_sf))
+  } else NULL
+
+  bbox <- sf::st_bbox(joined_sf)
+
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = kmp_boundary,
+                     fill = "#f3f4f6", color = "#1f4f8b",
+                     linewidth = 0.55, alpha = 0.45) +
+    ggplot2::geom_sf(data = joined_sf,
+                     ggplot2::aes(fill = composite),
+                     color = "#333", linewidth = 0.18) +
+    ggplot2::scale_fill_distiller(
+      palette   = "YlOrRd",
+      direction = 1,
+      name      = "Composite\nscore",
+      na.value  = "#cccccc"
+    )
+
+  if (!is.null(top_pts) && nrow(top_pts) > 0) {
+    p <- p + ggplot2::geom_sf_label(
+      data = top_pts,
+      ggplot2::aes(label = sprintf("#%d", rank_pos)),
+      size          = 3,
+      fontface      = "bold",
+      color         = "#111",
+      fill          = "white",
+      alpha         = 0.95,
+      label.r       = ggplot2::unit(0.25, "lines"),
+      label.padding = ggplot2::unit(0.22, "lines")
+    )
+  }
+
+  p +
+    ggplot2::coord_sf(
+      xlim   = c(bbox[["xmin"]], bbox[["xmax"]]),
+      ylim   = c(bbox[["ymin"]], bbox[["ymax"]]),
+      expand = TRUE
+    ) +
+    ggplot2::labs(title = "Composite score by HUC (static snapshot)") +
+    ggplot2::theme_void(base_size = 11) +
+    ggplot2::theme(
+      plot.title     = ggplot2::element_text(size = 12, face = "bold",
+                                             margin = ggplot2::margin(b = 6)),
+      legend.position = "right",
+      panel.background = ggplot2::element_rect(fill = "#fafafa",
+                                               color = NA)
+    )
+}
 
 
 #' Horizontal bar chart of the top-N HUCs by composite score.
@@ -65,25 +144,31 @@ plot_to_data_uri <- function(plot, width = 7, height = 4.5, dpi = 110) {
 
 #' Substitute chart placeholders in a report markdown string.
 #'
-#' @param md             Markdown from build_report_md().
-#' @param ranking_plot   ggplot for the top-ranked HUCs, or NULL.
-#' @param sensitivity_plot ggplot for the rank-distribution, or NULL.
-#' @param mode           "html" for inline base64 images, "text" to
-#'                       replace with a "see HTML report" note.
+#' @param md                Markdown from build_report_md().
+#' @param map_plot          ggplot for the static priority map, or NULL.
+#' @param ranking_plot      ggplot for the top-ranked bar chart, or NULL.
+#' @param sensitivity_plot  ggplot for the rank-distribution boxplot, or NULL.
+#' @param mode              "html" for inline base64 images, "text" for a
+#'                          "see HTML report" note suitable for the .md
+#'                          download.
 #'
 #' @return md with placeholders replaced.
 fill_report_chart_placeholders <- function(md,
+                                           map_plot         = NULL,
                                            ranking_plot     = NULL,
                                            sensitivity_plot = NULL,
                                            mode             = c("html", "text")) {
   mode <- match.arg(mode)
   if (mode == "html") {
-    rk_repl  <- plot_to_data_uri(ranking_plot,     width = 7.5, height = 4.5)
-    sn_repl  <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7)
+    mp_repl <- plot_to_data_uri(map_plot,         width = 8.0, height = 6.5)
+    rk_repl <- plot_to_data_uri(ranking_plot,     width = 7.5, height = 4.5)
+    sn_repl <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7.0)
   } else {
-    rk_repl  <- "\n\n_Chart: top-ranked HUCs -- see the HTML report or inline view._\n\n"
-    sn_repl  <- "\n\n_Chart: rank distribution -- see the HTML report or inline view._\n\n"
+    mp_repl <- "\n\n_Map: composite score by HUC -- see the HTML report or inline view._\n\n"
+    rk_repl <- "\n\n_Chart: top-ranked HUCs -- see the HTML report or inline view._\n\n"
+    sn_repl <- "\n\n_Chart: rank distribution -- see the HTML report or inline view._\n\n"
   }
+  md <- gsub(PLACEHOLDER_CHART_MAP,         mp_repl, md, fixed = TRUE)
   md <- gsub(PLACEHOLDER_CHART_RANKING,     rk_repl, md, fixed = TRUE)
   md <- gsub(PLACEHOLDER_CHART_SENSITIVITY, sn_repl, md, fixed = TRUE)
   md
@@ -170,6 +255,13 @@ build_report_md <- function(rv_state,
     }
     add("")
   }
+
+
+  # --- Spatial overview (static map) ---
+  # Inserted whenever there's an active analysis; placeholder resolves
+  # to an inline chart or a short "see HTML report" note per renderer.
+  add("## Spatial overview", "",
+      PLACEHOLDER_CHART_MAP, "")
 
 
   # --- HUC ranking ---

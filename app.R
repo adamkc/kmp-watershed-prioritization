@@ -975,6 +975,20 @@ server <- function(input, output, session) {
   })
 
   # Chart reactives (reused by inline view + HTML download).
+  report_chart_map <- reactive({
+    if (length(rv$active_metrics) == 0) return(NULL)
+    j <- active_joined()
+    if (is.null(j) || is.null(j$sf) || nrow(j$sf) == 0) return(NULL)
+    rk <- ranking()
+    make_prioritization_map(
+      joined_sf     = j$sf,
+      kmp_boundary  = KMP_BOUNDARY,
+      ranking_df    = rk,
+      huc_level     = active_huc_level(),
+      top_n         = 3
+    )
+  })
+
   report_chart_ranking <- reactive({
     if (length(rv$active_metrics) == 0) return(NULL)
     rk <- ranking()
@@ -986,45 +1000,49 @@ server <- function(input, output, session) {
     plot_rank_distribution(sens_rv$results, sens_rv$summary, limit_top = 30)
   })
 
+  output$report_chart_map_out <- renderPlot({
+    p <- report_chart_map(); req(p); p
+  })
   output$report_chart_ranking_out <- renderPlot({
-    p <- report_chart_ranking()
-    req(p)
-    p
+    p <- report_chart_ranking(); req(p); p
   })
-
   output$report_chart_sensitivity_out <- renderPlot({
-    p <- report_chart_sensitivity()
-    req(p)
-    p
+    p <- report_chart_sensitivity(); req(p); p
   })
 
-  # Inline view: split the markdown at each chart placeholder and
-  # interleave rendered markdown chunks with plotOutput. Rendering each
-  # chunk independently is fine because placeholders sit at blank-line
-  # boundaries between H2 sections, so no cross-chunk structure breaks.
+  # Inline view: split the markdown at each chart placeholder (in order:
+  # MAP, RANKING, SENSITIVITY) and interleave rendered markdown chunks
+  # with plotOutput. Rendering each chunk independently is fine because
+  # placeholders sit on their own line between H2 sections.
   output$report_rendered <- renderUI({
     md <- report_md()
-    parts <- strsplit(md, PLACEHOLDER_CHART_RANKING, fixed = TRUE)[[1]]
-    before_ranking <- parts[1]
-    after_ranking  <- if (length(parts) >= 2) parts[2] else ""
 
-    parts2 <- strsplit(after_ranking, PLACEHOLDER_CHART_SENSITIVITY,
-                       fixed = TRUE)[[1]]
-    between_charts <- parts2[1]
-    after_sens     <- if (length(parts2) >= 2) parts2[2] else ""
+    p1 <- strsplit(md, PLACEHOLDER_CHART_MAP,         fixed = TRUE)[[1]]
+    before_map  <- p1[1]
+    after_map   <- if (length(p1) >= 2) p1[2] else ""
 
-    ranking_chart_ui <- if (!is.null(report_chart_ranking())) {
-      plotOutput("report_chart_ranking_out", height = "420px")
-    } else NULL
-    sens_chart_ui <- if (!is.null(report_chart_sensitivity())) {
-      plotOutput("report_chart_sensitivity_out", height = "560px")
-    } else NULL
+    p2 <- strsplit(after_map, PLACEHOLDER_CHART_RANKING, fixed = TRUE)[[1]]
+    between_a   <- p2[1]
+    after_rank  <- if (length(p2) >= 2) p2[2] else ""
+
+    p3 <- strsplit(after_rank, PLACEHOLDER_CHART_SENSITIVITY, fixed = TRUE)[[1]]
+    between_b   <- p3[1]
+    after_sens  <- if (length(p3) >= 2) p3[2] else ""
+
+    map_ui <- if (!is.null(report_chart_map()))
+      plotOutput("report_chart_map_out", height = "520px") else NULL
+    rank_ui <- if (!is.null(report_chart_ranking()))
+      plotOutput("report_chart_ranking_out", height = "420px") else NULL
+    sens_ui <- if (!is.null(report_chart_sensitivity()))
+      plotOutput("report_chart_sensitivity_out", height = "560px") else NULL
 
     tagList(
-      shiny::markdown(before_ranking),
-      ranking_chart_ui,
-      shiny::markdown(between_charts),
-      sens_chart_ui,
+      shiny::markdown(before_map),
+      map_ui,
+      shiny::markdown(between_a),
+      rank_ui,
+      shiny::markdown(between_b),
+      sens_ui,
       shiny::markdown(after_sens)
     )
   })
@@ -1048,6 +1066,7 @@ server <- function(input, output, session) {
       # For HTML: substitute placeholders with inline base64 images.
       md <- fill_report_chart_placeholders(
         report_md(),
+        map_plot         = report_chart_map(),
         ranking_plot     = report_chart_ranking(),
         sensitivity_plot = report_chart_sensitivity(),
         mode             = "html"

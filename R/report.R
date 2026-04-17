@@ -122,16 +122,17 @@ make_prioritization_map <- function(joined_sf,
       ) +
       ggplot2::theme_void() +
       ggplot2::theme(
-        panel.background = ggplot2::element_rect(fill = "#f8f8f8",
-                                                 color = "#999"),
+        panel.background = ggplot2::element_rect(fill = NA, color = NA),
+        plot.background  = ggplot2::element_rect(fill = NA, color = NA),
         plot.margin      = ggplot2::margin(0, 0, 0, 0)
       )
 
-    # Bottom-left corner keeps clear of the legend on the right.
+    # Flush against the left edge of the panel, still in the bottom
+    # quarter to stay clear of the legend on the right.
     main <- main +
       patchwork::inset_element(
         inset,
-        left = 0.01, bottom = 0.01, right = 0.26, top = 0.32,
+        left = 0, bottom = 0.01, right = 0.25, top = 0.32,
         align_to = "panel", on_top = TRUE
       )
   }

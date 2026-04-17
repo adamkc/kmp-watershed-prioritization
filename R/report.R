@@ -4,6 +4,91 @@
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+# Placeholder strings inserted by build_report_md() where charts go.
+# Each renderer (inline / .md / .html) replaces these with its own
+# version of the chart (or nothing).
+PLACEHOLDER_CHART_RANKING     <- "__CHART_RANKING__"
+PLACEHOLDER_CHART_SENSITIVITY <- "__CHART_SENSITIVITY__"
+
+
+#' Horizontal bar chart of the top-N HUCs by composite score.
+#'
+#' Returns a ggplot object, or NULL if there's nothing to plot.
+make_ranking_chart <- function(ranking_df, n = 15) {
+  if (is.null(ranking_df) || nrow(ranking_df) == 0) return(NULL)
+  df <- ranking_df[!is.na(ranking_df$score), , drop = FALSE]
+  if (nrow(df) == 0) return(NULL)
+  df <- df[order(df$rank), ]
+  df <- df[seq_len(min(n, nrow(df))), , drop = FALSE]
+
+  # Use the HUC name if present; fall back to huccode. Disambiguate any
+  # duplicate names (e.g. multiple "Bear Creek") with the huccode.
+  labels <- ifelse(is.na(df$name) | !nzchar(df$name), df$huccode, df$name)
+  dup <- duplicated(labels) | duplicated(labels, fromLast = TRUE)
+  if (any(dup)) labels[dup] <- paste0(labels[dup], " (", df$huccode[dup], ")")
+  df$label <- factor(labels, levels = rev(labels))  # rank 1 at top of plot
+
+  ggplot2::ggplot(df, ggplot2::aes(x = score, y = label)) +
+    ggplot2::geom_col(fill = "#1f4f8b", alpha = 0.88) +
+    ggplot2::geom_text(ggplot2::aes(label = sprintf("%.2f", score)),
+                       hjust = -0.15, size = 3.2, color = "#212529") +
+    ggplot2::scale_x_continuous(
+      expand = ggplot2::expansion(mult = c(0, 0.15))) +
+    ggplot2::labs(
+      x = "Composite score (1 = lowest priority, 5 = highest)",
+      y = NULL,
+      title = sprintf("Top %d HUCs by composite score", nrow(df))
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(
+      panel.grid.major.y = ggplot2::element_blank(),
+      plot.title         = ggplot2::element_text(size = 12, face = "bold")
+    )
+}
+
+
+#' Render a ggplot to a base64-encoded PNG data URI suitable for
+#' embedding in an HTML document as <img src="...">.
+plot_to_data_uri <- function(plot, width = 7, height = 4.5, dpi = 110) {
+  if (is.null(plot)) return("")
+  tmp <- tempfile(fileext = ".png")
+  on.exit(unlink(tmp), add = TRUE)
+  ggplot2::ggsave(tmp, plot, width = width, height = height,
+                  dpi = dpi, bg = "white")
+  b64 <- base64enc::base64encode(tmp)
+  sprintf(
+    '\n\n<p><img src="data:image/png;base64,%s" alt="Chart" style="max-width: 100%%; height: auto; display: block; margin: 1em auto;"></p>\n\n',
+    b64
+  )
+}
+
+
+#' Substitute chart placeholders in a report markdown string.
+#'
+#' @param md             Markdown from build_report_md().
+#' @param ranking_plot   ggplot for the top-ranked HUCs, or NULL.
+#' @param sensitivity_plot ggplot for the rank-distribution, or NULL.
+#' @param mode           "html" for inline base64 images, "text" to
+#'                       replace with a "see HTML report" note.
+#'
+#' @return md with placeholders replaced.
+fill_report_chart_placeholders <- function(md,
+                                           ranking_plot     = NULL,
+                                           sensitivity_plot = NULL,
+                                           mode             = c("html", "text")) {
+  mode <- match.arg(mode)
+  if (mode == "html") {
+    rk_repl  <- plot_to_data_uri(ranking_plot,     width = 7.5, height = 4.5)
+    sn_repl  <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7)
+  } else {
+    rk_repl  <- "\n\n_Chart: top-ranked HUCs -- see the HTML report or inline view._\n\n"
+    sn_repl  <- "\n\n_Chart: rank distribution -- see the HTML report or inline view._\n\n"
+  }
+  md <- gsub(PLACEHOLDER_CHART_RANKING,     rk_repl, md, fixed = TRUE)
+  md <- gsub(PLACEHOLDER_CHART_SENSITIVITY, sn_repl, md, fixed = TRUE)
+  md
+}
+
 
 #' Assemble a markdown report of the current app state.
 #'
@@ -114,6 +199,9 @@ build_report_md <- function(rv_state,
                   quantile(sc, 0.25), quantile(sc, 0.75)),
           "")
     }
+
+    # Placeholder for the top-N bar chart (filled in by the renderer).
+    add(PLACEHOLDER_CHART_RANKING, "")
   }
 
 
@@ -155,6 +243,9 @@ build_report_md <- function(rv_state,
                   top_stab$p_top[i]))
     }
     add("")
+
+    # Placeholder for the rank-distribution boxplot.
+    add(PLACEHOLDER_CHART_SENSITIVITY, "")
   }
 
 

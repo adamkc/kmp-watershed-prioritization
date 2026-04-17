@@ -974,8 +974,59 @@ server <- function(input, output, session) {
     )
   })
 
+  # Chart reactives (reused by inline view + HTML download).
+  report_chart_ranking <- reactive({
+    if (length(rv$active_metrics) == 0) return(NULL)
+    rk <- ranking()
+    make_ranking_chart(rk, n = 15)
+  })
+
+  report_chart_sensitivity <- reactive({
+    if (is.null(sens_rv$results) || is.null(sens_rv$summary)) return(NULL)
+    plot_rank_distribution(sens_rv$results, sens_rv$summary, limit_top = 30)
+  })
+
+  output$report_chart_ranking_out <- renderPlot({
+    p <- report_chart_ranking()
+    req(p)
+    p
+  })
+
+  output$report_chart_sensitivity_out <- renderPlot({
+    p <- report_chart_sensitivity()
+    req(p)
+    p
+  })
+
+  # Inline view: split the markdown at each chart placeholder and
+  # interleave rendered markdown chunks with plotOutput. Rendering each
+  # chunk independently is fine because placeholders sit at blank-line
+  # boundaries between H2 sections, so no cross-chunk structure breaks.
   output$report_rendered <- renderUI({
-    shiny::markdown(report_md())
+    md <- report_md()
+    parts <- strsplit(md, PLACEHOLDER_CHART_RANKING, fixed = TRUE)[[1]]
+    before_ranking <- parts[1]
+    after_ranking  <- if (length(parts) >= 2) parts[2] else ""
+
+    parts2 <- strsplit(after_ranking, PLACEHOLDER_CHART_SENSITIVITY,
+                       fixed = TRUE)[[1]]
+    between_charts <- parts2[1]
+    after_sens     <- if (length(parts2) >= 2) parts2[2] else ""
+
+    ranking_chart_ui <- if (!is.null(report_chart_ranking())) {
+      plotOutput("report_chart_ranking_out", height = "420px")
+    } else NULL
+    sens_chart_ui <- if (!is.null(report_chart_sensitivity())) {
+      plotOutput("report_chart_sensitivity_out", height = "560px")
+    } else NULL
+
+    tagList(
+      shiny::markdown(before_ranking),
+      ranking_chart_ui,
+      shiny::markdown(between_charts),
+      sens_chart_ui,
+      shiny::markdown(after_sens)
+    )
   })
 
   output$download_report_md <- downloadHandler(
@@ -983,7 +1034,9 @@ server <- function(input, output, session) {
       sprintf("kmp_report_%s.md", format(Sys.time(), "%Y%m%d_%H%M"))
     },
     content = function(file) {
-      writeLines(report_md(), file, useBytes = TRUE)
+      # For MD: replace chart placeholders with a short "see HTML" note.
+      md <- fill_report_chart_placeholders(report_md(), mode = "text")
+      writeLines(md, file, useBytes = TRUE)
     }
   )
 
@@ -992,7 +1045,14 @@ server <- function(input, output, session) {
       sprintf("kmp_report_%s.html", format(Sys.time(), "%Y%m%d_%H%M"))
     },
     content = function(file) {
-      body <- as.character(shiny::markdown(report_md()))
+      # For HTML: substitute placeholders with inline base64 images.
+      md <- fill_report_chart_placeholders(
+        report_md(),
+        ranking_plot     = report_chart_ranking(),
+        sensitivity_plot = report_chart_sensitivity(),
+        mode             = "html"
+      )
+      body <- as.character(shiny::markdown(md))
       writeLines(render_standalone_html(body), file, useBytes = TRUE)
     }
   )

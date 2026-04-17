@@ -91,16 +91,30 @@ make_prioritization_map <- function(joined_sf,
       panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA)
     )
 
-  # Locator inset: CA+OR outline with the KMP zone highlighted. Shows
-  # regional context for readers unfamiliar with Northern California.
+  # Locator inset: CA+OR outline with the KMP zone highlighted in blue
+  # AND a red box marking the exact viewport of the main map. That way
+  # the reader sees (a) the regional context, (b) where the KMP zone
+  # sits within it, and (c) which portion of the KMP zone the main map
+  # is zoomed to -- critical when a sub-zone has been picked.
   if (!is.null(context_states)) {
     ctx_bbox <- sf::st_bbox(context_states)
+
+    # Rectangular polygon in the same CRS as context_states for the
+    # current main-map viewport.
+    viewport_rect <- sf::st_as_sfc(
+      sf::st_bbox(c(xmin = bbox[["xmin"]], ymin = bbox[["ymin"]],
+                    xmax = bbox[["xmax"]], ymax = bbox[["ymax"]]),
+                  crs = 4326)
+    )
+
     inset <- ggplot2::ggplot() +
       ggplot2::geom_sf(data = context_states,
                        fill = "white", color = "#555", linewidth = 0.25) +
       ggplot2::geom_sf(data = kmp_boundary,
                        fill = "#1f4f8b", color = "#1f4f8b",
-                       linewidth = 0.3, alpha = 0.7) +
+                       linewidth = 0.3, alpha = 0.5) +
+      ggplot2::geom_sf(data = viewport_rect,
+                       fill = NA, color = "#dc2626", linewidth = 0.75) +
       ggplot2::coord_sf(
         xlim   = c(ctx_bbox[["xmin"]], ctx_bbox[["xmax"]]),
         ylim   = c(ctx_bbox[["ymin"]], ctx_bbox[["ymax"]]),

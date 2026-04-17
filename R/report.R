@@ -12,19 +12,23 @@
 # placement inside build_report_md().
 PLACEHOLDER_CHART_MAP         <- "__CHART_MAP__"
 PLACEHOLDER_CHART_RANKING     <- "__CHART_RANKING__"
+PLACEHOLDER_CHART_FACETS      <- "__CHART_FACETS__"
 PLACEHOLDER_CHART_SENSITIVITY <- "__CHART_SENSITIVITY__"
 
 
 #' Static choropleth map of composite scores by HUC, with KMP zone
-#' outline and top-N rank badges.
+#' outline, top-N rank badges, and an optional locator inset showing
+#' the KMP zone's position relative to a regional context (e.g. CA+OR
+#' state outlines).
 #'
-#' Returns a ggplot object, or NULL if there is nothing to map (no
-#' active metrics, no joined geometry, or all-NA composite).
+#' Returns a ggplot (patchworked if inset is provided), or NULL if
+#' there is nothing to map.
 make_prioritization_map <- function(joined_sf,
                                     kmp_boundary,
                                     ranking_df,
                                     huc_level,
-                                    top_n = 3) {
+                                    top_n         = 3,
+                                    context_states = NULL) {
   if (is.null(joined_sf) || is.null(ranking_df)) return(NULL)
   if (nrow(joined_sf) == 0 || nrow(ranking_df) == 0) return(NULL)
 
@@ -44,7 +48,7 @@ make_prioritization_map <- function(joined_sf,
 
   bbox <- sf::st_bbox(joined_sf)
 
-  p <- ggplot2::ggplot() +
+  main <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = kmp_boundary,
                      fill = "#f3f4f6", color = "#1f4f8b",
                      linewidth = 0.55, alpha = 0.45) +
@@ -59,7 +63,7 @@ make_prioritization_map <- function(joined_sf,
     )
 
   if (!is.null(top_pts) && nrow(top_pts) > 0) {
-    p <- p + ggplot2::geom_sf_label(
+    main <- main + ggplot2::geom_sf_label(
       data = top_pts,
       ggplot2::aes(label = sprintf("#%d", rank_pos)),
       size          = 3,
@@ -72,7 +76,7 @@ make_prioritization_map <- function(joined_sf,
     )
   }
 
-  p +
+  main <- main +
     ggplot2::coord_sf(
       xlim   = c(bbox[["xmin"]], bbox[["xmax"]]),
       ylim   = c(bbox[["ymin"]], bbox[["ymax"]]),
@@ -81,11 +85,119 @@ make_prioritization_map <- function(joined_sf,
     ggplot2::labs(title = "Composite score by HUC (static snapshot)") +
     ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
-      plot.title     = ggplot2::element_text(size = 12, face = "bold",
-                                             margin = ggplot2::margin(b = 6)),
+      plot.title       = ggplot2::element_text(size = 12, face = "bold",
+                                               margin = ggplot2::margin(b = 6)),
+      legend.position  = "right",
+      panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA)
+    )
+
+  # Locator inset: CA+OR outline with the KMP zone highlighted. Shows
+  # regional context for readers unfamiliar with Northern California.
+  if (!is.null(context_states)) {
+    ctx_bbox <- sf::st_bbox(context_states)
+    inset <- ggplot2::ggplot() +
+      ggplot2::geom_sf(data = context_states,
+                       fill = "white", color = "#555", linewidth = 0.25) +
+      ggplot2::geom_sf(data = kmp_boundary,
+                       fill = "#1f4f8b", color = "#1f4f8b",
+                       linewidth = 0.3, alpha = 0.7) +
+      ggplot2::coord_sf(
+        xlim   = c(ctx_bbox[["xmin"]], ctx_bbox[["xmax"]]),
+        ylim   = c(ctx_bbox[["ymin"]], ctx_bbox[["ymax"]]),
+        expand = FALSE
+      ) +
+      ggplot2::theme_void() +
+      ggplot2::theme(
+        panel.background = ggplot2::element_rect(fill = "#f8f8f8",
+                                                 color = "#999"),
+        plot.margin      = ggplot2::margin(0, 0, 0, 0)
+      )
+
+    # Bottom-left corner keeps clear of the legend on the right.
+    main <- main +
+      patchwork::inset_element(
+        inset,
+        left = 0.01, bottom = 0.01, right = 0.26, top = 0.32,
+        align_to = "panel", on_top = TRUE
+      )
+  }
+
+  main
+}
+
+
+#' Small-multiples choropleth: one panel per active metric, colored by
+#' that metric's bin score (1-5 after direction adjustment so "5" always
+#' means "pushes this HUC up the ranking"). Shared color scale across
+#' panels so panels can be visually compared.
+#'
+#' @param joined_sf     HUC polygons joined to input data
+#' @param bin_scores    directed_bin_scores data frame (from apply_directions)
+#' @param huccodes      character vector of HUC IDs aligned to bin_scores rows
+#' @param active_metrics metric names currently in use
+#' @param huc_level     HUC level integer
+make_faceted_metric_map <- function(joined_sf,
+                                    bin_scores,
+                                    huccodes,
+                                    active_metrics,
+                                    huc_level) {
+  active_cols <- intersect(active_metrics, names(bin_scores))
+  if (length(active_cols) == 0) return(NULL)
+  if (is.null(joined_sf) || nrow(joined_sf) == 0) return(NULL)
+
+  huc_col <- paste0("huc", huc_level)
+  joined_sf <- sf::st_transform(joined_sf, 4326)
+
+  # Build long-form sf: for each active metric, duplicate geometry rows
+  # with a 'metric' column and the corresponding bin score.
+  per_metric <- lapply(active_cols, function(m) {
+    vals <- bin_scores[[m]][match(joined_sf[[huc_col]], huccodes)]
+    df   <- joined_sf[, huc_col, drop = FALSE]
+    df$metric <- factor(m, levels = active_cols)
+    df$bin    <- vals
+    df
+  })
+  sf_long <- do.call(rbind, per_metric)
+
+  # Facet label: strip "Simulated: " prefix and wrap long names.
+  label_fun <- function(x) {
+    cleaned <- gsub("^Simulated:\\s*", "", x)
+    vapply(cleaned, function(s) paste(strwrap(s, width = 28), collapse = "\n"),
+           character(1))
+  }
+
+  n_cols <- if (length(active_cols) <= 4)      2
+            else if (length(active_cols) <= 9) 3
+            else                                4
+
+  ggplot2::ggplot(sf_long) +
+    ggplot2::geom_sf(ggplot2::aes(fill = bin),
+                     color = "#666", linewidth = 0.08) +
+    ggplot2::scale_fill_distiller(
+      palette   = "YlOrRd",
+      direction = 1,
+      limits    = c(1, 5),
+      breaks    = 1:5,
+      name      = "Bin",
+      na.value  = "#cccccc"
+    ) +
+    ggplot2::facet_wrap(~ metric, ncol = n_cols,
+                        labeller = ggplot2::as_labeller(label_fun)) +
+    ggplot2::coord_sf() +
+    ggplot2::labs(
+      title    = "Per-metric bin scores across HUCs",
+      subtitle = "Bin 5 (darkest) = highest priority contribution from that metric"
+    ) +
+    ggplot2::theme_void(base_size = 10) +
+    ggplot2::theme(
+      plot.title     = ggplot2::element_text(size = 12, face = "bold"),
+      plot.subtitle  = ggplot2::element_text(size = 9, color = "#6c757d",
+                                             margin = ggplot2::margin(b = 8)),
+      strip.text     = ggplot2::element_text(size = 9, face = "bold",
+                                             margin = ggplot2::margin(t = 2, b = 2)),
+      strip.background = ggplot2::element_rect(fill = "#f0ece1", color = NA),
       legend.position = "right",
-      panel.background = ggplot2::element_rect(fill = "#fafafa",
-                                               color = NA)
+      panel.spacing   = ggplot2::unit(6, "pt")
     )
 }
 
@@ -156,20 +268,38 @@ plot_to_data_uri <- function(plot, width = 7, height = 4.5, dpi = 110) {
 fill_report_chart_placeholders <- function(md,
                                            map_plot         = NULL,
                                            ranking_plot     = NULL,
+                                           facets_plot      = NULL,
                                            sensitivity_plot = NULL,
                                            mode             = c("html", "text")) {
   mode <- match.arg(mode)
+
+  # Facet height scales with the number of panels. Estimate by reading
+  # off the ggplot layout if possible; fall back to a default.
+  facets_h <- 8
+  if (!is.null(facets_plot)) {
+    n_panels <- tryCatch(
+      length(unique(facets_plot$data$metric)), error = function(e) NA
+    )
+    if (!is.na(n_panels) && n_panels > 0) {
+      # assume 3 cols; ~3 inches per row, minimum 6
+      facets_h <- max(6, ceiling(n_panels / 3) * 3)
+    }
+  }
+
   if (mode == "html") {
     mp_repl <- plot_to_data_uri(map_plot,         width = 8.0, height = 6.5)
     rk_repl <- plot_to_data_uri(ranking_plot,     width = 7.5, height = 4.5)
+    ft_repl <- plot_to_data_uri(facets_plot,      width = 8.5, height = facets_h)
     sn_repl <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7.0)
   } else {
     mp_repl <- "\n\n_Map: composite score by HUC -- see the HTML report or inline view._\n\n"
     rk_repl <- "\n\n_Chart: top-ranked HUCs -- see the HTML report or inline view._\n\n"
+    ft_repl <- "\n\n_Chart: per-metric bin scores -- see the HTML report or inline view._\n\n"
     sn_repl <- "\n\n_Chart: rank distribution -- see the HTML report or inline view._\n\n"
   }
   md <- gsub(PLACEHOLDER_CHART_MAP,         mp_repl, md, fixed = TRUE)
   md <- gsub(PLACEHOLDER_CHART_RANKING,     rk_repl, md, fixed = TRUE)
+  md <- gsub(PLACEHOLDER_CHART_FACETS,      ft_repl, md, fixed = TRUE)
   md <- gsub(PLACEHOLDER_CHART_SENSITIVITY, sn_repl, md, fixed = TRUE)
   md
 }
@@ -294,6 +424,18 @@ build_report_md <- function(rv_state,
 
     # Placeholder for the top-N bar chart (filled in by the renderer).
     add(PLACEHOLDER_CHART_RANKING, "")
+  }
+
+
+  # --- Metric breakdowns (per-metric small multiples) -----------------------
+  if (length(rv_state$active_metrics) > 0) {
+    add("## Metric breakdowns", "",
+        "_One panel per active metric, colored by that metric's ",
+        "direction-adjusted bin score (1 = low priority contribution, ",
+        "5 = high). Look for HUCs that score high on some metrics but ",
+        "not others -- those are the ones whose ranking shifts most ",
+        "as weights change._", "",
+        PLACEHOLDER_CHART_FACETS, "")
   }
 
 

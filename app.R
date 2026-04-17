@@ -55,6 +55,12 @@ help_icon <- function(text, placement = "top") {
 KMP_BOUNDARY <- sf::st_read("data/kmp_boundary.geojson", quiet = TRUE)
 KMP_BBOX     <- sf::st_bbox(KMP_BOUNDARY)
 
+# CA + OR state outlines for the report-map locator inset.
+CONTEXT_STATES <- tryCatch(
+  sf::st_read("data/context_states.geojson", quiet = TRUE),
+  error = function(e) NULL
+)
+
 # Master metrics + scenario catalog, loaded once.
 MASTER_RAW      <- read_input_csv("data/kmp_metrics.csv")
 MASTER_VALID    <- validate_input(MASTER_RAW)
@@ -981,11 +987,12 @@ server <- function(input, output, session) {
     if (is.null(j) || is.null(j$sf) || nrow(j$sf) == 0) return(NULL)
     rk <- ranking()
     make_prioritization_map(
-      joined_sf     = j$sf,
-      kmp_boundary  = KMP_BOUNDARY,
-      ranking_df    = rk,
-      huc_level     = active_huc_level(),
-      top_n         = 3
+      joined_sf      = j$sf,
+      kmp_boundary   = KMP_BOUNDARY,
+      ranking_df     = rk,
+      huc_level      = active_huc_level(),
+      top_n          = 3,
+      context_states = CONTEXT_STATES
     )
   })
 
@@ -993,6 +1000,20 @@ server <- function(input, output, session) {
     if (length(rv$active_metrics) == 0) return(NULL)
     rk <- ranking()
     make_ranking_chart(rk, n = 15)
+  })
+
+  report_chart_facets <- reactive({
+    if (length(rv$active_metrics) == 0) return(NULL)
+    j <- active_joined()
+    if (is.null(j) || is.null(j$sf) || nrow(j$sf) == 0) return(NULL)
+    d <- active_data()
+    make_faceted_metric_map(
+      joined_sf      = j$sf,
+      bin_scores     = directed_bin_scores(),
+      huccodes       = d$huccode,
+      active_metrics = rv$active_metrics,
+      huc_level      = active_huc_level()
+    )
   })
 
   report_chart_sensitivity <- reactive({
@@ -1006,44 +1027,57 @@ server <- function(input, output, session) {
   output$report_chart_ranking_out <- renderPlot({
     p <- report_chart_ranking(); req(p); p
   })
+  output$report_chart_facets_out <- renderPlot({
+    p <- report_chart_facets(); req(p); p
+  })
   output$report_chart_sensitivity_out <- renderPlot({
     p <- report_chart_sensitivity(); req(p); p
   })
 
   # Inline view: split the markdown at each chart placeholder (in order:
-  # MAP, RANKING, SENSITIVITY) and interleave rendered markdown chunks
-  # with plotOutput. Rendering each chunk independently is fine because
-  # placeholders sit on their own line between H2 sections.
+  # MAP, RANKING, FACETS, SENSITIVITY) and interleave rendered markdown
+  # chunks with plotOutput. Each chunk is self-contained because
+  # placeholders sit between H2 sections.
   output$report_rendered <- renderUI({
     md <- report_md()
 
-    p1 <- strsplit(md, PLACEHOLDER_CHART_MAP,         fixed = TRUE)[[1]]
-    before_map  <- p1[1]
-    after_map   <- if (length(p1) >= 2) p1[2] else ""
+    split_at <- function(s, token) {
+      parts <- strsplit(s, token, fixed = TRUE)[[1]]
+      list(before = parts[1], after = if (length(parts) >= 2) parts[2] else "")
+    }
 
-    p2 <- strsplit(after_map, PLACEHOLDER_CHART_RANKING, fixed = TRUE)[[1]]
-    between_a   <- p2[1]
-    after_rank  <- if (length(p2) >= 2) p2[2] else ""
-
-    p3 <- strsplit(after_rank, PLACEHOLDER_CHART_SENSITIVITY, fixed = TRUE)[[1]]
-    between_b   <- p3[1]
-    after_sens  <- if (length(p3) >= 2) p3[2] else ""
+    a <- split_at(md,       PLACEHOLDER_CHART_MAP)
+    b <- split_at(a$after,  PLACEHOLDER_CHART_RANKING)
+    c <- split_at(b$after,  PLACEHOLDER_CHART_FACETS)
+    d <- split_at(c$after,  PLACEHOLDER_CHART_SENSITIVITY)
 
     map_ui <- if (!is.null(report_chart_map()))
-      plotOutput("report_chart_map_out", height = "520px") else NULL
+      plotOutput("report_chart_map_out", height = "540px") else NULL
     rank_ui <- if (!is.null(report_chart_ranking()))
       plotOutput("report_chart_ranking_out", height = "420px") else NULL
+
+    # Facet map height scales with metric count (~160 px per row, 3 cols).
+    n_active <- length(rv$active_metrics)
+    n_facet_cols <- if (n_active <= 4) 2 else if (n_active <= 9) 3 else 4
+    n_facet_rows <- ceiling(n_active / n_facet_cols)
+    facets_h <- max(400, n_facet_rows * 220)
+    facets_ui <- if (!is.null(report_chart_facets()))
+      plotOutput("report_chart_facets_out",
+                 height = paste0(facets_h, "px")) else NULL
+
     sens_ui <- if (!is.null(report_chart_sensitivity()))
       plotOutput("report_chart_sensitivity_out", height = "560px") else NULL
 
     tagList(
-      shiny::markdown(before_map),
+      shiny::markdown(a$before),
       map_ui,
-      shiny::markdown(between_a),
+      shiny::markdown(b$before),
       rank_ui,
-      shiny::markdown(between_b),
+      shiny::markdown(c$before),
+      facets_ui,
+      shiny::markdown(d$before),
       sens_ui,
-      shiny::markdown(after_sens)
+      shiny::markdown(d$after)
     )
   })
 
@@ -1068,6 +1102,7 @@ server <- function(input, output, session) {
         report_md(),
         map_plot         = report_chart_map(),
         ranking_plot     = report_chart_ranking(),
+        facets_plot      = report_chart_facets(),
         sensitivity_plot = report_chart_sensitivity(),
         mode             = "html"
       )

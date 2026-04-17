@@ -630,6 +630,12 @@ server <- function(input, output, session) {
   # --- Sub-zone selector ---
   observeEvent(input$subzone, {
     rv$subzone_id <- input$subzone
+    # Auto-advance to Step 2 only if the user hasn't progressed past
+    # it yet. Changing sub-zone mid-analysis shouldn't yank them back.
+    if (is.null(rv$source_type)) {
+      accordion_panel_close(id = "steps", values = "step1")
+      accordion_panel_open( id = "steps", values = "step2")
+    }
   }, ignoreInit = TRUE)
 
 

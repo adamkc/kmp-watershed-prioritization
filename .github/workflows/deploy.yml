@@ -52,6 +52,16 @@ jobs:
           mkdir -p _site
           Rscript -e 'shinylive::export(".", "_site", verbose = TRUE)'
 
+      - name: Set browser tab title
+        # shinylive hardcodes <title>Shiny App</title> in the generated
+        # index.html. Replace it with the real app title so the browser
+        # tab, bookmarks, and share-link previews read correctly.
+        # (An in-app tags$title() only affects the embedded iframe, not
+        # the outer document the browser actually titles.)
+        run: |
+          sed -i 's|<title>Shiny App</title>|<title>KMP Watershed Prioritization</title>|' _site/index.html
+          grep '<title>' _site/index.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

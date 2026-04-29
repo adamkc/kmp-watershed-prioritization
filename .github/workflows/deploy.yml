@@ -33,17 +33,12 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # Use RSPM with a date snapshot from BEFORE rlang 1.1.7
-          # landed on CRAN. Without this, every `any::pkg` pulls latest
-          # CRAN -- and recent releases (patchwork, bslib, dplyr, ...)
-          # bumped Imports: rlang to >= 1.1.7. webR still ships rlang
-          # 1.1.6, so the strict requirement bakes into the bundle
-          # metadata and the browser fails to load. The 2026-04-01
-          # snapshot is days before rlang 1.2.0 (2026-04-06) and
-          # captures the era when webR's package versions were current,
-          # so runner deps and webR binaries agree on rlang
-          # requirements.
-          extra-repositories: https://packagemanager.posit.co/cran/2026-04-01
+          # rlang 1.1.7 dropped 2026-01-09. Use a Posit Package Manager
+          # snapshot from before then so pkgdepends resolves to package
+          # versions whose dep trees (e.g. ggplot2 3.5.2, not 4.0.x)
+          # don't pull in newer-only deps like S7 that webR's
+          # /contrib/4.4/ doesn't carry.
+          extra-repositories: https://packagemanager.posit.co/cran/2025-09-01
           packages: |
             any::shiny
             any::bslib
@@ -83,9 +78,26 @@ jobs:
           ls -la "$STAGE"
 
       - name: Build shinylive bundle
+        # shinylive 0.4.1 hardcodes WEBR_R_VERSION = "4.5.1", which makes
+        # it pull WASM package binaries from
+        # https://repo.r-wasm.org/bin/emscripten/contrib/4.5/. That repo
+        # currently has rlang 1.2.0 + ggplot2 4.0.3 + patchwork 1.3.2
+        # binaries whose NAMESPACE imports require rlang >= 1.1.7 -- but
+        # webR's bundled *runtime* still has rlang 1.1.6 baked in, so
+        # the loader fails with
+        #   "namespace 'rlang' 1.1.6 is already loaded, but >= 1.1.7 is
+        #    required"
+        # and the app never boots. /contrib/4.4/ has internally
+        # consistent older binaries (rlang 1.1.6, patchwork 1.3.0,
+        # ggplot2 3.5.2) that load cleanly against the runtime. Monkey-
+        # patch the constant before calling export().
         run: |
           mkdir -p _site
-          Rscript -e "shinylive::export(Sys.getenv('STAGE'), '_site', verbose = TRUE)"
+          Rscript -e '
+            assignInNamespace("WEBR_R_VERSION", "4.4.1", ns = "shinylive")
+            cat("Patched WEBR_R_VERSION to:", shinylive:::WEBR_R_VERSION, "\n")
+            shinylive::export(Sys.getenv("STAGE"), "_site", verbose = TRUE)
+          '
 
       - name: Set browser tab title
         # shinylive hardcodes <title>Shiny App</title> in the generated

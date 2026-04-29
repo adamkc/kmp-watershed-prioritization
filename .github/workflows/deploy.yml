@@ -47,10 +47,26 @@ jobs:
             any::markdown
             any::shinylive
 
+      - name: Stage runtime files
+        # Only the runtime files go to the export. shinylive::export
+        # scans every .R file under appdir for library() calls and
+        # bundles those packages into the WebAssembly image -- so if
+        # scripts/acquire_*.R reference httr, terra, exactextractr,
+        # rmapshaper, etc. (none of which the app needs), shinylive
+        # tries to ship them too and the resulting dependency graph
+        # collides on rlang. Staging a clean directory keeps the
+        # bundle slim and the loader happy.
+        run: |
+          mkdir -p _stage
+          cp app.R _stage/
+          cp -r R _stage/
+          cp -r data _stage/
+          if [ -d www ]; then cp -r www _stage/; fi
+
       - name: Build shinylive bundle
         run: |
           mkdir -p _site
-          Rscript -e 'shinylive::export(".", "_site", verbose = TRUE)'
+          Rscript -e 'shinylive::export("_stage", "_site", verbose = TRUE)'
 
       - name: Set browser tab title
         # shinylive hardcodes <title>Shiny App</title> in the generated

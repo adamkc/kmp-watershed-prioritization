@@ -78,25 +78,23 @@ jobs:
           ls -la "$STAGE"
 
       - name: Build shinylive bundle
-        # shinylive 0.4.1 hardcodes WEBR_R_VERSION = "4.5.1", which makes
-        # it pull WASM package binaries from
-        # https://repo.r-wasm.org/bin/emscripten/contrib/4.5/. That repo
-        # currently has rlang 1.2.0 + ggplot2 4.0.3 + patchwork 1.3.2
-        # binaries whose NAMESPACE imports require rlang >= 1.1.7 -- but
-        # webR's bundled *runtime* still has rlang 1.1.6 baked in, so
-        # the loader fails with
-        #   "namespace 'rlang' 1.1.6 is already loaded, but >= 1.1.7 is
-        #    required"
-        # and the app never boots. /contrib/4.4/ has internally
-        # consistent older binaries (rlang 1.1.6, patchwork 1.3.0,
-        # ggplot2 3.5.2) that load cleanly against the runtime. Monkey-
-        # patch the constant before calling export().
+        # The webR repo at /contrib/4.5/ has been refreshed in the past
+        # week with package binaries (ggplot2 4.0.3, patchwork 1.3.2,
+        # bslib 0.10.0, ...) whose NAMESPACE imports require rlang
+        # >= 1.1.7 -- but webR's bundled runtime still has rlang 1.1.6,
+        # so the app fails to load. Pinning shinylive to /contrib/4.4/
+        # via a WEBR_R_VERSION monkey-patch produced a different
+        # JavaScript-level mismatch. Easiest fix: roll the bundle's web
+        # assets back to 0.10.7 (Dec 2024), which predates the breaking
+        # /contrib/4.5/ refresh and matches the era of consistent
+        # package binaries.
         run: |
           mkdir -p _site
           Rscript -e '
-            assignInNamespace("WEBR_R_VERSION", "4.4.1", ns = "shinylive")
-            cat("Patched WEBR_R_VERSION to:", shinylive:::WEBR_R_VERSION, "\n")
-            shinylive::export(Sys.getenv("STAGE"), "_site", verbose = TRUE)
+            shinylive::assets_download(version = "0.10.7")
+            shinylive::export(Sys.getenv("STAGE"), "_site",
+                              assets_version = "0.10.7",
+                              verbose = TRUE)
           '
 
       - name: Set browser tab title

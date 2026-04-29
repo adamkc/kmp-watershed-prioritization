@@ -47,26 +47,31 @@ jobs:
             any::markdown
             any::shinylive
 
-      - name: Stage runtime files
-        # Only the runtime files go to the export. shinylive::export
-        # scans every .R file under appdir for library() calls and
-        # bundles those packages into the WebAssembly image -- so if
-        # scripts/acquire_*.R reference httr, terra, exactextractr,
-        # rmapshaper, etc. (none of which the app needs), shinylive
-        # tries to ship them too and the resulting dependency graph
-        # collides on rlang. Staging a clean directory keeps the
-        # bundle slim and the loader happy.
+      - name: Stage runtime files outside the repo
+        # shinylive::export() ultimately calls renv::dependencies() to
+        # find package references. renv auto-detects the project root by
+        # walking up to find a `.git` (or .Rproj / renv.lock) -- so a
+        # stage dir *inside* the repo lets renv climb up and scan
+        # `scripts/`, pulling in httr, terra, rmapshaper, R.utils, V8,
+        # exactextractr, maps, etc. that the runtime app doesn't need
+        # (and that collide on rlang in webR). Staging into /tmp is
+        # outside the repo, so renv treats the stage dir itself as the
+        # project root and only scans app.R + R/.
         run: |
-          mkdir -p _stage
-          cp app.R _stage/
-          cp -r R _stage/
-          cp -r data _stage/
-          if [ -d www ]; then cp -r www _stage/; fi
+          STAGE="$(mktemp -d)"
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+          cp app.R "$STAGE/"
+          cp -r R "$STAGE/"
+          cp -r data "$STAGE/"
+          if [ -d www ]; then cp -r www "$STAGE/"; fi
+          # Drop a sentinel so renv definitely roots here.
+          touch "$STAGE/.here"
+          ls -la "$STAGE"
 
       - name: Build shinylive bundle
         run: |
           mkdir -p _site
-          Rscript -e 'shinylive::export("_stage", "_site", verbose = TRUE)'
+          Rscript -e "shinylive::export(Sys.getenv('STAGE'), '_site', verbose = TRUE)"
 
       - name: Set browser tab title
         # shinylive hardcodes <title>Shiny App</title> in the generated

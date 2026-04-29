@@ -29,20 +29,21 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4'
-          # Use RSPM with a date snapshot from BEFORE rlang 1.1.7
-          # landed on CRAN. Without this, every `any::pkg` we install
-          # pulls latest CRAN -- and recent CRAN releases (patchwork,
-          # bslib, dplyr, etc.) bumped Imports: rlang to >= 1.1.7. webR
-          # still ships rlang 1.1.6, so the strict requirement bakes
-          # into the bundle metadata and the browser fails to load.
-          # The 2026-04-01 snapshot is days before rlang 1.2.0
-          # (2026-04-06) and captures the era when webR's package
-          # versions were current, so runner deps and webR binaries
-          # agree on rlang requirements.
-          extra-repositories: https://packagemanager.posit.co/cran/2026-04-01
+          use-public-rspm: true
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # Use RSPM with a date snapshot from BEFORE rlang 1.1.7
+          # landed on CRAN. Without this, every `any::pkg` pulls latest
+          # CRAN -- and recent releases (patchwork, bslib, dplyr, ...)
+          # bumped Imports: rlang to >= 1.1.7. webR still ships rlang
+          # 1.1.6, so the strict requirement bakes into the bundle
+          # metadata and the browser fails to load. The 2026-04-01
+          # snapshot is days before rlang 1.2.0 (2026-04-06) and
+          # captures the era when webR's package versions were current,
+          # so runner deps and webR binaries agree on rlang
+          # requirements.
+          extra-repositories: https://packagemanager.posit.co/cran/2026-04-01
           packages: |
             any::shiny
             any::bslib

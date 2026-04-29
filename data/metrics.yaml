@@ -1,10 +1,15 @@
-# Metric metadata: category, direction, and hover description for every
-# metric in the master data file (data/kmp_metrics.csv).
+# Metric metadata: category, direction, description, and "planned" flag
+# for every metric the picker should expose -- whether or not the master
+# data file (data/kmp_metrics.csv) currently has that column.
 #
-#   category    -- groups metrics in the custom picker modal
-#   direction   -- "positive" if a higher raw value means higher priority;
-#                  "negative" if a lower raw value means higher priority
-#   description -- hover tooltip text shown on slider labels in Step 3
+#   category     -- groups metrics in the custom picker modal
+#   direction    -- "positive" if a higher raw value means higher priority;
+#                   "negative" if a lower raw value means higher priority
+#   description  -- hover tooltip text on slider labels and picker rows
+#   planned      -- (optional, default false) if true, the metric appears
+#                   in the picker as a disabled (uncheckable) row to flag
+#                   it as upcoming. Master data does not need to contain
+#                   the column.
 #
 # The scoring pipeline computes Jenks / ordinal bin scores, then inverts
 # them for "negative"-direction metrics so "bin 5" always means "pushes
@@ -13,9 +18,6 @@
 # Metrics not listed here default to direction: positive, category: Other,
 # description: (empty). Unlisted metrics render as plain slider labels
 # with no tooltip.
-#
-# NOTE: descriptions below are PLACEHOLDERS for the simulated demo
-# dataset. Replace with accurate definitions when real metrics land.
 
 category_order:
   - Fire
@@ -26,150 +28,337 @@ category_order:
 
 metrics:
 
-  # --- Fire ---
-  - name: "Simulated: Recent fire (% area, 10yr)"
+  # ============================== Fire ==================================
+
+  - name: "Recent fire (% area, 10yr)"
     category: Fire
     direction: positive
     description: >
-      Fraction of the HUC that burned in the last 10 years. Higher values
-      indicate recent disturbance and active restoration opportunity.
+      Fraction of the HUC10 burned in the last 10 years (2016 to 2026)
+      from MTBS perimeter polygons -- i.e. the union of all MTBS fires
+      that touched the HUC10, intersected with HUC10 area. Source: USGS
+      MTBS Burned Areas Boundaries (`mtbs_perimeter_data.shp`).
 
-  - name: "Simulated: Unburned 30yr (%)"
+  - name: "Recent fire (% area, 3yr)"
     category: Fire
     direction: positive
     description: >
-      Fraction of the HUC that has not burned in 30+ years. High values may
-      indicate fire-suppressed stands in need of prescribed fire or thinning.
+      Fraction of the HUC10 with confirmed post-fire severity (CBI class
+      > 1) in 2023 to 2026, from USFS RAVG annual CBI-4 mosaics. Stricter
+      than the 10-year MTBS-perimeter metric -- only counts pixels that
+      actually changed, excluding unburned pockets inside fire perimeters.
 
-  - name: "Simulated: Fire return departure"
+  - name: "Unburned 30yr (%)"
     category: Fire
     direction: positive
     description: >
-      Deviation from the historical fire-return interval. Positive values mean
-      the HUC is overdue for fire; negative values mean fire has been more
-      frequent than expected.
+      Fraction of the HUC10 that has *not* burned in the last 30 years
+      (1996 to 2026), from MTBS perimeters. High values may indicate
+      fire-suppressed stands in need of prescribed fire or thinning.
 
-  - name: "Simulated: High severity fire (% area)"
+  - name: "High severity fire (% area)"
     category: Fire
     direction: positive
     description: >
-      Fraction burned at high severity (greater than 75% canopy mortality) in
-      recent fires. Flags areas needing active post-fire intervention.
+      Fraction of the HUC10 that experienced CBI class 4 (>75% basal-area
+      mortality) at least once in 2016 to 2026. Source: USFS RAVG annual
+      CBI-4 mosaics, union of class-4 cells across years. Flags areas
+      needing active post-fire intervention.
 
-  # --- Climate ---
-  - name: "Simulated: Climate resiliency index"
+  - name: "Moderate-high severity fire (% area)"
+    category: Fire
+    direction: positive
+    description: >
+      Same window as High-severity but using CBI class >= 3 (moderate or
+      high severity). Captures stand-replacing-or-near-it fire over the
+      past decade, broader than the strict high-severity definition.
+      Source: USFS RAVG.
+
+  - name: "Reburn area (% area)"
+    category: Fire
+    direction: positive
+    description: >
+      Fraction of the HUC10 where fire activity (CBI class > 1) occurred
+      in >= 2 distinct calendar years over the full 2010 to 2026 RAVG
+      record. Captures multi-fire pressure -- only pixels that actually
+      reburned (excludes once-burned pixels). Source: USFS RAVG.
+
+  - name: "Wildfire hazard potential"
+    category: Fire
+    direction: positive
+    description: >
+      Area-weighted mean of the USFS Wildfire Hazard Potential 2023
+      raster (270 m, continuous national CONUS product). Synthesises
+      fire likelihood and intensity potential. High values indicate
+      areas where fire is both likely and expected to be severe.
+
+  - name: "Fire return departure"
+    category: Fire
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. Deviation between observed fire history (MTBS) and
+      LANDFIRE Mean Fire Return Interval (MFRI). Positive values mean
+      the HUC is overdue for fire; negative values mean fire has been
+      more frequent than its historical baseline expects. Pending
+      LANDFIRE MFRI integration.
+
+  # ============================ Climate =================================
+
+  - name: "Climate resiliency index"
     category: Climate
     direction: positive
     description: >
-      Composite index combining topographic diversity, microclimate
-      variability, and species-assemblage redundancy. Higher = more resilient
-      to climate change.
+      TNC Terrestrial Resilience score (Anderson et al., Resilient and
+      Connected Network), zonal mean per HUC10. Values are z-scores in
+      standard-deviation units relative to the regional mean, typical
+      range -3 to +3; higher values mark places with stronger
+      topo-edaphic diversity and microclimate buffering.
 
-  - name: "Simulated: Climate refugia score"
+  - name: "Climate refugia score"
     category: Climate
     direction: positive
     description: >
-      Likelihood of persistent suitable habitat under projected climate
-      change. Higher values mark stronger climate refugia.
+      CDFW ACE Vegetation Refugia Score (BIOS ds2738, hex grid),
+      area-weighted mean per HUC10. Higher = more likely to provide
+      vegetation refugia under projected climate change. CA-only
+      coverage; some Oregon HUCs have low values reflecting only the
+      small CA portion of the HUC.
 
-  - name: "Simulated: Snow persistence"
+  - name: "Snowpack (peak SWE, mm)"
     category: Climate
     direction: positive
     description: >
-      Average fraction of the year with snow cover on the ground. High values
-      indicate reliable snowpack-dependent hydrology.
+      Mean April-1 snow water equivalent over 2004 to 2025, from
+      NSIDC SNODAS masked-CONUS daily grids. Indicates strength of
+      snowpack-dependent hydrology. Highest values are Trinity Alps
+      and the Mount Shasta / upper Sacramento headwaters.
 
-  - name: "Simulated: Summer water stress"
+  - name: "Snowpack trajectory"
+    category: Climate
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. SNODAS-only record (2004 to 2025) is too short and
+      outlier-dominated -- the 2015 drought and 2023/2025 record
+      snow years pull the trend slightly positive in either direction
+      (OLS or robust). Candidate replacements: SNOTEL station trends
+      (~1980 onward) or CalAdapt LOCA downscaled projections (modeled
+      future change rather than observed past).
+
+  - name: "Summer water stress (CWD, mm)"
     category: Climate
     direction: negative
     description: >
-      Water deficit during July to September. High values indicate
-      drought-stressed conditions, reducing restoration suitability.
+      1991 to 2020 mean Climatic Water Deficit from the USGS Basin
+      Characterization Model (BCM, Flint et al.), zonal mean per HUC10.
+      CWD = unmet evapotranspiration demand summed over the year.
+      High values indicate drought-stressed conditions, reducing
+      restoration suitability. Top: Sacramento Valley / Bay Estuaries;
+      bottom: North Coast / Klamath maritime.
 
-  # --- Restoration ---
-  - name: "Simulated: Lost meadow potential"
+  # ========================= Restoration ================================
+
+  - name: "Lost meadow potential (% area)"
     category: Restoration
     direction: positive
     description: >
-      Modeled acreage of historically wet meadow now converted to drier
-      systems. Higher values indicate larger recovery opportunity.
+      Fraction of HUC10 covered by USFS Landscape-scale Meadow Model
+      (LMM) prediction polygons -- i.e. modeled wet-meadow potential.
+      Higher values indicate larger recovery opportunity for
+      historically wet meadow systems converted to drier states.
 
-  - name: "Simulated: Riparian restoration (ac)"
+  - name: "Meadow density (% area)"
     category: Restoration
     direction: positive
     description: >
-      Acres identified as candidates for riparian treatment (bank repair,
-      vegetation recovery, beaver dam analogs, etc.).
+      Fraction of HUC10 covered by inventoried KMP meadow polygons
+      (Klamath Meadows Partnership in-house compilation, 2026; 6,041
+      meadows totalling 66 km²). Authoritative within the KMP zone --
+      preferred over CDFW ACE meadows or LMM where available. Note:
+      coverage stops at the CA border, so OR HUCs read 0.
 
-  - name: "Simulated: Meadow density (% area)"
+  - name: "Riparian restoration (ac)"
     category: Restoration
+    planned: true
     direction: positive
     description: >
-      Fraction of the HUC classified as meadow habitat. Higher density means
-      larger treatment footprint per unit effort.
+      PLANNED. Acres of non-natural land cover within an NHD-streams
+      buffer per HUC10, indicating riparian restoration target acreage.
+      Will be derived from NHD hydrography + NLCD land-cover.
 
-  - name: "Simulated: Invasive plant extent"
+  - name: "Invasive plant extent"
     category: Restoration
+    planned: true
     direction: negative
     description: >
-      Fraction of the HUC with mapped invasive plant populations. High values
-      complicate and raise the cost of restoration treatment.
+      PLANNED. Fraction of HUC10 with mapped invasive plant
+      populations. Candidate sources: Cal-IPC mapping, EDDMapS, or
+      iMapInvasives. High values complicate and raise the cost of
+      restoration treatment.
 
-  # --- Biodiversity ---
-  - name: "Simulated: Fish of concern (# spp)"
+  - name: "Beaver restoration potential"
+    category: Restoration
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. Stream miles or area suitable for beaver-led process-
+      based restoration, summarised per HUC10 from the BRAT (Beaver
+      Restoration Assessment Tool) outputs. Already pre-computed at
+      the HUC level for much of the West.
+
+  # ========================= Biodiversity ===============================
+
+  - name: "Fish of concern (# spp)"
     category: Biodiversity
     direction: positive
     description: >
-      Count of federally or state-listed fish species documented in the HUC.
-      More species under listing = higher conservation priority.
+      Maximum across child HUC12s of the count of rare aquatic fish
+      per HUC12 from the CDFW ACE Aquatic Biodiversity Summary
+      (BIOS ds2768, RarFish field). Listed / special-status fish
+      only -- salmonids dominate the signal in the KMP zone.
 
-  - name: "Simulated: Rare amphibian richness"
+  - name: "Native fish richness (# spp)"
     category: Biodiversity
     direction: positive
     description: >
-      Count of rare amphibian species documented in the HUC. Amphibians are
-      sensitive restoration indicators.
+      Maximum across child HUC12s of native-fish species count from
+      CDFW ACE Aquatic Native Fish Richness (BIOS ds2744, NtvFish
+      field). Includes salmonids, cyprinids, suckers, sculpin, and
+      lampreys. Range 0 to 24 across KMP.
 
-  - name: "Simulated: Rare plant richness"
+  - name: "Coho salmon present"
     category: Biodiversity
     direction: positive
     description: >
-      Count of rare vascular plant species documented in the HUC. High values
-      reflect botanically significant sites.
+      0/1 flag: 1 if Oncorhynchus kisutch (any ESU, including the SONCC
+      and Central California Coast ESUs) is listed in any child HUC12.
+      Source: CDFW ACE Aquatic Species List (BIOS ds2740). 51% of HUC10s.
 
-  - name: "Simulated: Aquatic connectivity"
+  - name: "Chinook salmon present"
     category: Biodiversity
     direction: positive
     description: >
-      Index of upstream-downstream connectivity for aquatic species movement.
-      Higher = less fragmented by barriers such as culverts and diversions.
+      0/1 flag: 1 if Oncorhynchus tshawytscha (any run / ESU -- fall,
+      spring, winter, late-fall, KT) is listed in any child HUC12.
+      Source: CDFW ACE BIOS ds2740. 59% of HUC10s.
 
-  # --- Admin / regulatory ---
-  - name: "Simulated: Regulatory ease (0-5)"
+  - name: "Steelhead/rainbow trout present"
+    category: Biodiversity
+    direction: positive
+    description: >
+      0/1 flag: 1 if Oncorhynchus mykiss (any form -- anadromous
+      steelhead or resident rainbow trout, any DPS / ESU) is listed
+      in any child HUC12. Source: CDFW ACE BIOS ds2740. 99% of HUC10s.
+
+  - name: "Coastal cutthroat trout present"
+    category: Biodiversity
+    direction: positive
+    description: >
+      0/1 flag: 1 if Oncorhynchus clarkii clarkii is listed in any
+      child HUC12. Restricted to the Smith River and lower Klamath
+      coastal corridor. Source: CDFW ACE BIOS ds2740. 10% of HUC10s.
+
+  - name: "Salmonid species (# spp)"
+    category: Biodiversity
+    direction: positive
+    description: >
+      Distinct salmonid binomials (genera Oncorhynchus and Salvelinus)
+      recorded in any child HUC12 over the full CDFW ACE Aquatic
+      Species List record. Range 0 to 7. Top HUCs are Smith River
+      drainages and lower Klamath. Source: CDFW ACE BIOS ds2740.
+
+  - name: "Rare amphibian richness"
+    category: Biodiversity
+    direction: positive
+    description: >
+      Maximum across child HUC12s of rare aquatic-amphibian species
+      count, from CDFW ACE Aquatic Biodiversity Summary (BIOS ds2768,
+      RarAqAmph field). Aquatic only -- terrestrial amphibians (e.g.
+      tailed frogs in upland forest) are not captured here. Range 0 to 6.
+
+  - name: "Rare plant richness"
+    category: Biodiversity
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. Count of rare vascular plant species per HUC10 from
+      CNDDB (subscription required) and/or the CNPS Rare Plant
+      Inventory. NatureServe Explorer is a free alternative source.
+
+  - name: "Aquatic connectivity"
+    category: Biodiversity
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. HUC10-level index of aquatic connectivity for fish and
+      aquatic species, derived from the CalFish Passage Assessment
+      Database (barrier density and passability per HUC10). Distinct
+      from the terrestrial-connectivity metric below.
+
+  - name: "Coho habitat extent"
+    category: Biodiversity
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. HUC10 area or stream-mile coverage of NOAA-designated
+      Coho Salmon Critical Habitat. Complements the binary
+      "Coho salmon present" flag with a magnitude of habitat overlap.
+
+  - name: "Terrestrial connectivity rank"
+    category: Biodiversity
+    direction: positive
+    description: >
+      Area-weighted mean of CDFW ACE Terrestrial Connectivity rank
+      (BIOS ds2734, hex grid). Ranks landscape connectivity for
+      terrestrial wildlife movement. Higher = more intact corridors,
+      lower channelization. CA-coverage caveat as for refugia.
+
+  # ============================== Admin ==================================
+
+  - name: "Federal ownership (%)"
     category: Admin
     direction: positive
     description: >
-      Ordinal score of regulatory complexity, reflecting jurisdictional
-      boundaries and permit pathways. Higher = simpler to permit.
+      Fraction of HUC10 area on federal land (USFS, BLM, NPS, FWS,
+      DOD, USACE, USBR, OTHF) per PAD-US 4.1 fee class, Mang_Type =
+      "FED". Higher values enable federal-partner restoration
+      pathways. CA-only data; the 7 Oregon HUCs read NA.
 
-  - name: "Simulated: Federal ownership (%)"
+  - name: "NEPA-ready area (ac)"
     category: Admin
+    planned: true
     direction: positive
     description: >
-      Fraction of the HUC on federal land (USFS, BLM, NPS, etc.). High values
-      enable federal-partner restoration pathways.
+      PLANNED. Acres covered by completed NEPA review per HUC10, i.e.
+      "shovel-ready" treatment area. Requires outreach to individual
+      USFS forests / BLM districts (USFS PALS or regional equivalents).
 
-  - name: "Simulated: NEPA-ready area (ac)"
+  - name: "Regulatory ease (0-5)"
     category: Admin
+    planned: true
     direction: positive
     description: >
-      Acres already covered by completed NEPA review and available for
-      immediate treatment. HUCs with existing clearance are 'shovel-ready'.
+      PLANNED. Composite ordinal score of regulatory complexity per
+      HUC10, derived from the count of distinct jurisdictions
+      (PAD-US + state + tribal layers). Higher = simpler permitting
+      pathway, fewer jurisdictions to coordinate with.
 
-  - name: "Simulated: Tribal partnership (0-5)"
+  - name: "Tribal partnership (0-5)"
     category: Admin
+    planned: true
     direction: positive
     description: >
-      Ordinal score for established tribal co-management interest and
-      existing partnership agreements. Higher = stronger partnership
-      potential.
+      PLANNED. Ordinal score for established tribal co-management
+      interest and existing partnership agreements. Not in any
+      spatial dataset; requires KMP internal records + BIA Tribal
+      Trust Lands.
+
+  - name: "Conservation easements"
+    category: Admin
+    planned: true
+    direction: positive
+    description: >
+      PLANNED. Per-HUC10 conservation-easement coverage from the
+      National Conservation Easement Database (NCED). Optional
+      supplement to the regulatory-ease metric.

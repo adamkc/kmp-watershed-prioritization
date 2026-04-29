@@ -44,3 +44,7 @@ docs/_site/
 
 # Local user data (do not commit user CSVs uploaded for testing)
 data/user_uploads/
+
+# Raw source data for metric acquisition (large geospatial downloads,
+# tracked via docs/data-acquisition.md, not committed to the repo)
+data/source/

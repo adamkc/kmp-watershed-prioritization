@@ -25,7 +25,8 @@ load_metrics_meta <- function(path = "data/metrics.yaml") {
       meta[[m$name]] <- list(
         category    = m$category    %||% DEFAULT_METRIC_CATEGORY,
         direction   = m$direction   %||% DEFAULT_METRIC_DIRECTION,
-        description = trimws(m$description %||% DEFAULT_METRIC_DESCRIPTION)
+        description = trimws(m$description %||% DEFAULT_METRIC_DESCRIPTION),
+        planned     = isTRUE(m$planned)
       )
     }
   }
@@ -54,6 +55,24 @@ metric_direction <- function(metrics_meta, name) {
 metric_description <- function(metrics_meta, name) {
   entry <- metrics_meta$meta[[name]]
   if (is.null(entry)) DEFAULT_METRIC_DESCRIPTION else entry$description
+}
+
+
+#' Is the metric flagged as `planned: true` in the YAML? Planned metrics
+#' appear in the picker as disabled rows -- the master data file does not
+#' need to contain a column for them.
+metric_planned <- function(metrics_meta, name) {
+  entry <- metrics_meta$meta[[name]]
+  if (is.null(entry)) FALSE else isTRUE(entry$planned)
+}
+
+
+#' All metric names in the YAML that are flagged planned.
+planned_metric_names <- function(metrics_meta) {
+  if (length(metrics_meta$meta) == 0) return(character())
+  is_planned <- vapply(metrics_meta$meta,
+                       function(e) isTRUE(e$planned), logical(1))
+  names(metrics_meta$meta)[is_planned]
 }
 
 

@@ -3,63 +3,85 @@
 # Each scenario defines a named set of metrics and their starting
 # weights. Metric names MUST match column names in the master data
 # file (data/kmp_metrics.csv) exactly -- spaces, punctuation, and
-# case all matter.
+# case all matter. Scenarios should reference only metrics that have
+# real data; planned metrics (those with `planned: true` in
+# data/metrics.yaml) cannot appear here.
 #
 # Edit this file to add, remove, or tune scenarios. The app loads
 # this at startup; no code changes required.
-#
-# NOTE: the metrics referenced below are from the *simulated*
-# development dataset (20 metrics at HUC10 scale, prefixed with
-# "Simulated:"). Replace with real metric names when the production
-# master data is assembled.
 
 scenarios:
 
   - id: kmp_general
     name: KMP General Scenario
     description: >
-      Balanced prioritization across categories: fire risk/opportunity,
-      climate resilience, restoration potential, biodiversity, and
-      administrative readiness. A reasonable starting point when no
-      single theme dominates.
+      Balanced prioritization across categories: fire risk and
+      opportunity, climate resilience, meadow restoration potential,
+      aquatic biodiversity, and federal-partnership readiness. A
+      reasonable starting point when no single theme dominates.
     weights:
-      "Simulated: Recent fire (% area, 10yr)": 1
-      "Simulated: Climate resiliency index": 1
-      "Simulated: Climate refugia score": 1
-      "Simulated: Lost meadow potential": 2
-      "Simulated: Meadow density (% area)": 1
-      "Simulated: Fish of concern (# spp)": 1
-      "Simulated: Rare amphibian richness": 0.5
-      "Simulated: Rare plant richness": 0.5
-      "Simulated: Federal ownership (%)": 1
-      "Simulated: NEPA-ready area (ac)": 2
+      "Recent fire (% area, 10yr)": 1
+      "Wildfire hazard potential": 1
+      "Climate resiliency index": 1
+      "Climate refugia score": 1
+      "Summer water stress (CWD, mm)": 1
+      "Lost meadow potential (% area)": 2
+      "Meadow density (% area)": 1
+      "Fish of concern (# spp)": 1
+      "Native fish richness (# spp)": 0.5
+      "Rare amphibian richness": 0.5
+      "Federal ownership (%)": 1
 
   - id: kmp_fire
     name: KMP Fire Scenario
     description: >
-      Fire-focused prioritization. Elevates recent fire, unburned
-      stands overdue for disturbance, and fire-return-interval
-      departure, paired with administrative readiness so surfaced
-      HUCs can actually be treated.
+      Fire-focused prioritization. Elevates recent fire history,
+      unburned stands due for disturbance, high-severity hot spots,
+      and the synthesised Wildfire Hazard Potential signal -- paired
+      with federal-ownership share so surfaced HUCs are
+      treatable through federal-partner pathways.
     weights:
-      "Simulated: Recent fire (% area, 10yr)": 3
-      "Simulated: Unburned 30yr (%)": 2
-      "Simulated: Fire return departure": 2
-      "Simulated: High severity fire (% area)": 1
-      "Simulated: NEPA-ready area (ac)": 2
-      "Simulated: Federal ownership (%)": 1
-      "Simulated: Regulatory ease (0-5)": 1
+      "Recent fire (% area, 10yr)": 3
+      "Recent fire (% area, 3yr)": 1
+      "Unburned 30yr (%)": 2
+      "High severity fire (% area)": 2
+      "Moderate-high severity fire (% area)": 1
+      "Reburn area (% area)": 1
+      "Wildfire hazard potential": 2
+      "Federal ownership (%)": 1
 
   - id: kmp_climate_refuge
     name: KMP Climate Refuge Scenario
     description: >
-      Climate-focused prioritization. Elevates climate resiliency and
-      refugia, snow persistence, and inverse summer water stress --
-      HUCs expected to remain viable habitat under warming trends.
+      Climate-focused prioritization. Elevates topo-edaphic resiliency
+      (TNC), vegetation-refugia score (CDFW ACE), snowpack-fed
+      hydrology, and inverse summer water stress -- HUCs expected to
+      remain viable habitat under warming trends.
     weights:
-      "Simulated: Climate resiliency index": 3
-      "Simulated: Climate refugia score": 3
-      "Simulated: Snow persistence": 2
-      "Simulated: Summer water stress": 1
-      "Simulated: Meadow density (% area)": 1
-      "Simulated: Aquatic connectivity": 1
+      "Climate resiliency index": 3
+      "Climate refugia score": 3
+      "Snowpack (peak SWE, mm)": 2
+      "Summer water stress (CWD, mm)": 1
+      "Lost meadow potential (% area)": 1
+      "Meadow density (% area)": 1
+      "Terrestrial connectivity rank": 1
+
+  - id: kmp_salmonid
+    name: KMP Salmonid Scenario
+    description: >
+      Anadromous-fish-focused prioritization. Elevates HUCs with
+      diverse salmonid assemblages (especially Coho and Chinook), high
+      overall native fish richness, listed-fish counts, and the wet-
+      meadow restoration potential and refugia signal that support
+      cool-water fish persistence under warming.
+    weights:
+      "Coho salmon present": 3
+      "Chinook salmon present": 2
+      "Steelhead/rainbow trout present": 1
+      "Salmonid species (# spp)": 2
+      "Native fish richness (# spp)": 1
+      "Fish of concern (# spp)": 2
+      "Lost meadow potential (% area)": 1
+      "Meadow density (% area)": 1
+      "Climate refugia score": 1
+      "Summer water stress (CWD, mm)": 1

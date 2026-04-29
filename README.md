@@ -7,12 +7,16 @@ list, or upload a CSV), adjust metric weights with live sliders, and
 see the resulting composite score as a choropleth map, a ranked table,
 a Monte Carlo sensitivity analysis, and a downloadable report.
 
-> ⚠ The deployed master data is currently **simulated**. See
-> [`docs/data-acquisition.md`](docs/data-acquisition.md) for the
-> tracker that drives the data team's transition from simulated to
-> real metrics. The amber banner at the top of the deployed app
-> stays in place until the bundled `data/kmp_metrics.csv` carries
-> real values.
+The bundled master data carries **23 real metrics** across all 203
+HUC10 watersheds in the KMP zone, sourced from PAD-US, MTBS, RAVG, TNC
+Resilient and Connected Network, USFS LMM, the KMP Meadow Inventory,
+CDFW ACE (aquatic and terrestrial), SNODAS, USFS WHP, and BCM. A
+further 12 metrics are flagged as "Planned" in the metric picker
+(grey, disabled rows) — these are placeholders for datasets that have
+been scoped but not yet acquired. See
+[`docs/data-acquisition.md`](docs/data-acquisition.md) for the
+data-acquisition tracker (per-metric source, processing script, and
+status).
 
 ## What it does
 
@@ -71,14 +75,15 @@ R/                               analytical modules (auto-sourced)
   sensitivity.R                  Monte Carlo + rank distribution plot
   report.R                       markdown report + chart functions + standalone HTML wrapper
 data/
-  kmp_metrics.csv                master metrics table (currently simulated)
+  kmp_metrics.csv                master metrics table (203 HUC10s, 23 real metrics)
   scenarios.yaml                 prebuilt scenario catalog
-  metrics.yaml                   per-metric category + direction + description
+  metrics.yaml                   per-metric category + direction + description + planned flag
   kmp_boundary.geojson           KMP zone outline (simplified)
   kmp_huc{4,6,8,10,12}.geojson   bundled HUC boundaries by level
                                    (HUC10 covers all of California; others are KMP-only)
   context_states.geojson         CA + OR outlines for the report-map locator inset
-  examples/                      regression fixtures (Scott River clean + broken)
+  examples/                      regression fixtures + simulated-demo backup
+  source/                        raw geospatial source data per acquisition (gitignored)
 scripts/
   split_huc_layers.R             regenerate per-level KMP GeoJSONs from GPKG
   prepare_kmp_boundary.R         simplify the source KMP boundary shapefile
@@ -106,28 +111,31 @@ Most changes live in two YAML files; non-developers can edit them safely.
   description: >
     Plain-English summary shown in the app and the report.
   weights:
-    "Simulated: Recent fire (% area, 10yr)": 2
-    "Simulated: Climate resiliency index": 1
-    "Simulated: Lost meadow potential": 3
+    "Recent fire (% area, 10yr)": 2
+    "Climate resiliency index": 1
+    "Lost meadow potential (% area)": 3
 ```
 
-Metric names must match column names in `data/kmp_metrics.csv` exactly. Mismatches surface in the app's Diagnostics tab.
+Metric names must match column names in `data/kmp_metrics.csv` exactly. Mismatches surface in the app's Diagnostics tab. Scenarios should reference only metrics with real data — entries flagged `planned: true` in `data/metrics.yaml` aren't valid scenario weights.
 
 ### Add or adjust metric metadata
 
 `data/metrics.yaml`:
 
 ```yaml
-- name: "Simulated: Invasive plant extent"
+- name: "Invasive plant extent"
   category: Restoration
   direction: negative          # low raw value -> high priority score
+  planned: true                # optional; default false
   description: >
-    Tooltip text shown on the slider in Step 3.
+    Tooltip text shown on the slider in Step 3 and on hover in the
+    custom-metric picker modal.
 ```
 
 `category` drives grouping in the custom-metric picker modal.
 `direction: negative` inverts bin scores so "bin 5" always means "high priority".
-`description` becomes a hover tooltip on the slider's metric name.
+`description` becomes a hover tooltip on both the slider's metric name and the picker row.
+`planned: true` renders the metric as a disabled (uncheckable) row in the picker — used to flag datasets that have been scoped but aren't on disk yet.
 
 ### Replace the master data
 
@@ -156,7 +164,8 @@ For the data team's transition plan from simulated to real metrics, see
 - **HUC boundaries:** USGS Watershed Boundary Dataset (public domain). Bundled boundaries are Visvalingam-Whyatt simplified for web display; regenerate from authoritative WBD for analysis elsewhere.
 - **KMP zone outline:** Klamath Meadows Partnership working group, July 2022 draft.
 - **CA + OR state outlines:** `maps` R package (public domain).
-- **Simulated metrics:** randomly generated for development and demonstration. Column names are prefixed `Simulated:` so they cannot be mistaken for production data. See `scripts/generate_simulated_metrics.R` for the deterministic generator.
+- **Real metrics:** PAD-US 4.1 (federal ownership), MTBS perimeters (recent fire, unburned 30yr), USFS RAVG CBI-4 mosaics (high-severity, mod-high severity, recent fire 3yr, reburn area), USFS WHP 2023 (wildfire hazard potential), TNC Resilient and Connected Network (climate resiliency), CDFW ACE Terrestrial Climate Resilience and Connectivity (climate refugia score, terrestrial connectivity rank), BCM (summer water stress / CWD), SNODAS (peak SWE), USFS LMM (lost meadow potential), KMP Meadow Inventory (meadow density), CDFW ACE Aquatic Biodiversity / Native Fish / Species List (fish of concern, native fish richness, rare amphibian richness, salmonid presence/richness). Each metric's source, method, and processing script are documented in [`docs/data-acquisition.md`](docs/data-acquisition.md). Per-metric raw outputs live under `data/source/<dataset>/`.
+- **Simulated demo data:** the original randomly-generated demo CSV is preserved at `data/examples/kmp_metrics_simulated_backup.csv` for reference. See `scripts/generate_simulated_metrics.R` for the deterministic generator.
 
 ## Testing
 
@@ -178,6 +187,24 @@ deploy runs automatically on every push to `main` via
 `.github/workflows/deploy.yml` — no server or R hosting required. The
 post-build step patches the browser tab title from the shinylive
 default to "KMP Watershed Prioritization".
+
+## Planned metrics
+
+Twelve metrics are flagged `planned: true` in `data/metrics.yaml` and
+appear in the picker as greyed-out, disabled rows. They cover datasets
+that are scoped in [`docs/data-acquisition.md`](docs/data-acquisition.md)
+but not yet on disk. Hovering a planned row shows what's coming and
+the candidate source. Currently:
+
+- *Climate*: Snowpack trajectory (SNOTEL or CalAdapt LOCA)
+- *Fire*: Fire return departure (LANDFIRE MFRI)
+- *Restoration*: Riparian restoration (NHD + NLCD), Invasive plant extent (Cal-IPC), Beaver restoration potential (BRAT)
+- *Biodiversity*: Rare plant richness (CNDDB / CNPS), Aquatic connectivity (CalFish PAD), Coho habitat extent (NOAA Critical Habitat)
+- *Admin*: NEPA-ready area (USFS PALS), Regulatory ease (composite), Tribal partnership (KMP records), Conservation easements (NCED)
+
+To turn a planned metric into a real one: drop the column into
+`data/kmp_metrics.csv`, remove the `planned: true` flag from
+`data/metrics.yaml`, and update the row in `docs/data-acquisition.md`.
 
 Page URL: _see the GitHub repository "About" field._
 

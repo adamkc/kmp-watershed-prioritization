@@ -147,15 +147,6 @@ ui <- page_sidebar(
   sidebar = sidebar(
     width = 380,
 
-    div(class = "alert alert-warning py-2 px-3 mb-3",
-        style = "font-size: 0.78rem; line-height: 1.35;",
-        tags$strong("Demo deployment \u2014 simulated data."),
-        tags$br(),
-        "The 20 metrics in the master table are randomly generated for ",
-        "development and deployment testing. Rankings shown here are ",
-        "illustrative only and should not inform real prioritization ",
-        "decisions."),
-
     uiOutput("workflow_ui")
   ),
 
@@ -516,40 +507,90 @@ server <- function(input, output, session) {
   # keep Shiny's built-in state management; on OK we union the values.
   cat_input_id <- function(cat) paste0("custom_cat_", make.names(cat))
 
+  # Render a metric label: direction arrow + name. If a description is
+  # available, wrap in a bslib tooltip with a dotted underline as a
+  # hoverability hint. `dimmed` flag is for planned/disabled rows.
+  metric_label_tag <- function(m, dimmed = FALSE) {
+    d <- metric_direction(METRICS_META, m)
+    is_neg <- identical(d, "negative")
+    arrow  <- if (is_neg) "\u2193" else "\u2191"
+    color  <- if (is_neg) "#1f4f8b" else "#dc2626"
+    desc   <- metric_description(METRICS_META, m)
+    name_span <- tags$span(
+      style = if (nzchar(desc))
+        "border-bottom: 1px dotted #6c757d; cursor: help;"
+        else NULL,
+      m
+    )
+    label <- tags$span(
+      tags$span(arrow,
+                style = sprintf("color: %s; font-weight: 700;
+                                 display: inline-block; width: 1em;
+                                 margin-right: 6px;", color)),
+      name_span
+    )
+    if (dimmed) {
+      label <- tags$span(label, style = "opacity: 0.55;")
+    }
+    if (nzchar(desc)) {
+      bslib::tooltip(label, desc, placement = "right")
+    } else {
+      label
+    }
+  }
+
   observeEvent(input$pick_custom, {
     cls <- active_classification()
-    metric_opts <- cls$name[cls$use_in_score]
-    grouped <- group_by_category(metric_opts, METRICS_META)
+    real_opts    <- cls$name[cls$use_in_score]
+    planned_opts <- setdiff(planned_metric_names(METRICS_META), real_opts)
+
+    # Group together so planned rows show in their declared category.
+    all_opts <- c(real_opts, planned_opts)
+    grouped  <- group_by_category(all_opts, METRICS_META)
 
     # Build one category block per non-empty group.
     groups_ui <- lapply(names(grouped), function(cat) {
       members <- grouped[[cat]]
-      # Labels are HTML so the direction arrow can be colored by
-      # direction (up = red, down = blue).
-      label_tags <- lapply(members, function(m) {
-        d <- metric_direction(METRICS_META, m)
-        is_neg <- identical(d, "negative")
-        arrow  <- if (is_neg) "\u2193" else "\u2191"
-        color  <- if (is_neg) "#1f4f8b" else "#dc2626"
-        tags$span(
-          tags$span(arrow,
-                    style = sprintf(
-                      "color: %s; font-weight: 700;
-                       display: inline-block; width: 1em;
-                       margin-right: 6px;", color)),
-          m
-        )
-      })
+      real_members    <- intersect(members, real_opts)
+      planned_members <- intersect(members, planned_opts)
 
-      tagList(
-        tags$h6(cat, class = "mt-3 mb-1 text-primary border-bottom pb-1"),
+      checkbox_block <- if (length(real_members) > 0) {
         checkboxGroupInput(
           cat_input_id(cat),
           label = NULL,
-          choiceNames  = label_tags,
-          choiceValues = as.list(members),
-          selected = intersect(rv$active_metrics, members)
+          choiceNames  = lapply(real_members, metric_label_tag),
+          choiceValues = as.list(real_members),
+          selected = intersect(rv$active_metrics, real_members)
         )
+      } else NULL
+
+      planned_block <- if (length(planned_members) > 0) {
+        # Static, non-interactive rows. Disabled native checkbox + dimmed
+        # label, with the same tooltip surfaced via metric_label_tag.
+        tagList(
+          tags$div(
+            class = "small text-muted mt-1 mb-1",
+            style = "font-style: italic;
+                     border-top: 1px dotted #d1d5db;
+                     padding-top: 4px;",
+            "Planned (data not yet acquired):"
+          ),
+          lapply(planned_members, function(m) {
+            tags$div(
+              style = "display: flex; align-items: center;
+                       padding: 1px 0; line-height: 1.45;",
+              tags$input(type = "checkbox", disabled = "disabled",
+                         style = "margin-right: 8px; opacity: 0.5;"),
+              metric_label_tag(m, dimmed = TRUE)
+            )
+          })
+        )
+      } else NULL
+
+      tagList(
+        tags$h6(cat, class = "mt-3 mb-1 text-primary border-bottom pb-1"),
+        checkbox_block,
+        planned_block
       )
     })
 
@@ -558,12 +599,15 @@ server <- function(input, output, session) {
       easyClose = TRUE, size = "l",
       p(class = "text-muted small mb-1",
         "Check the metrics you want in the composite score. ",
-        "Starting weights default to 1 and are adjustable in Step 3."),
+        "Starting weights default to 1 and are adjustable in Step 3. ",
+        "Hover any metric name for a description of the underlying ",
+        "dataset and method."),
       p(class = "small mb-2",
         tags$span(style = "color: #dc2626; font-weight: 700;", "\u2191"),
         " means high raw value \u2192 high score; ",
         tags$span(style = "color: #1f4f8b; font-weight: 700;", "\u2193"),
-        " means low raw value \u2192 high score."),
+        " means low raw value \u2192 high score. Greyed-out rows are ",
+        "planned metrics whose source data isn't on disk yet."),
       tagList(groups_ui),
       footer = tagList(
         modalButton("Cancel"),

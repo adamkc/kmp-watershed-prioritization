@@ -131,10 +131,22 @@ validate_input <- function(df) {
 
 
 #' Load bundled boundary geometry for a given HUC level.
+#'
+#' For HUC10, prefers the local all-CA file (kmp_huc10_ca.geojson) if
+#' present, falling back to the committed KMP-only kmp_huc10.geojson.
+#' This lets local users upload non-KMP HUC10 CSVs and still get a
+#' rendered map, while keeping the deployed shinylive bundle small.
 load_boundaries <- function(level, data_dir = "data") {
-  path <- file.path(data_dir, paste0("kmp_huc", level, ".geojson"))
-  if (!file.exists(path)) {
-    stop("Boundary file not found: ", path, call. = FALSE)
+  candidates <- if (level == 10L) {
+    c(file.path(data_dir, "kmp_huc10_ca.geojson"),
+      file.path(data_dir, "kmp_huc10.geojson"))
+  } else {
+    file.path(data_dir, paste0("kmp_huc", level, ".geojson"))
+  }
+  path <- candidates[file.exists(candidates)][1]
+  if (is.na(path)) {
+    stop("Boundary file not found: tried ",
+         paste(candidates, collapse = ", "), call. = FALSE)
   }
   sf::st_read(path, quiet = TRUE)
 }

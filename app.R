@@ -19,6 +19,20 @@ library(leaflet)
 library(sf)
 library(DT)
 
+# Cold-start profiler. Wrap eager loads with .kmp_time("label", expr) and
+# read STARTUP_TIMINGS in the Diagnostics tab. Phases also message() to
+# stderr so they show up in the browser console under shinylive.
+STARTUP_TIMINGS <- list()
+.kmp_time <- function(label, expr) {
+  t0  <- Sys.time()
+  out <- force(expr)
+  dt  <- as.numeric(Sys.time() - t0, units = "secs")
+  STARTUP_TIMINGS[[label]] <<- dt
+  message(sprintf("[startup] %-32s %6.2fs", label, dt))
+  out
+}
+.KMP_T0 <- Sys.time()
+
 source("R/input.R")
 source("R/columns.R")
 source("R/score.R")
@@ -52,32 +66,35 @@ help_icon <- function(text, placement = "top") {
 }
 
 # KMP zone outline, loaded once at app start.
-KMP_BOUNDARY <- sf::st_read("data/kmp_boundary.geojson", quiet = TRUE)
+KMP_BOUNDARY <- .kmp_time("read kmp_boundary.geojson",
+  sf::st_read("data/kmp_boundary.geojson", quiet = TRUE))
 KMP_BBOX     <- sf::st_bbox(KMP_BOUNDARY)
 
 # CA + OR state outlines for the report-map locator inset.
-CONTEXT_STATES <- tryCatch(
+CONTEXT_STATES <- .kmp_time("read context_states.geojson", tryCatch(
   sf::st_read("data/context_states.geojson", quiet = TRUE),
   error = function(e) NULL
-)
+))
 
 # Master metrics + scenario catalog, loaded once.
-MASTER_RAW      <- read_input_csv("data/kmp_metrics.csv")
-MASTER_VALID    <- validate_input(MASTER_RAW)
+MASTER_RAW      <- .kmp_time("read kmp_metrics.csv",
+  read_input_csv("data/kmp_metrics.csv"))
+MASTER_VALID    <- .kmp_time("validate_input",       validate_input(MASTER_RAW))
 MASTER_DATA     <- MASTER_VALID$data
 MASTER_LEVEL    <- MASTER_VALID$huc_level
-MASTER_CLASS    <- classify_columns(MASTER_DATA)
+MASTER_CLASS    <- .kmp_time("classify_columns",     classify_columns(MASTER_DATA))
 MASTER_METRICS  <- MASTER_CLASS$name[MASTER_CLASS$use_in_score]
 
-SCENARIOS       <- load_scenarios("data/scenarios.yaml")
-SCENARIO_CHECK  <- validate_scenarios(SCENARIOS, MASTER_METRICS)
-METRICS_META    <- load_metrics_meta("data/metrics.yaml")
+SCENARIOS       <- .kmp_time("load_scenarios",       load_scenarios("data/scenarios.yaml"))
+SCENARIO_CHECK  <- .kmp_time("validate_scenarios",   validate_scenarios(SCENARIOS, MASTER_METRICS))
+METRICS_META    <- .kmp_time("load_metrics_meta",    load_metrics_meta("data/metrics.yaml"))
 
 # Sub-zone catalog. "Full KMP" plus one entry per HUC6 in the zone,
 # populated from data/kmp_huc6.geojson. These are placeholders -- the
 # KMP working group will eventually define geology- / ecology-based
 # analysis zones that replace the HUC6 units.
-HUC6_BOUNDARIES <- sf::st_read("data/kmp_huc6.geojson", quiet = TRUE)
+HUC6_BOUNDARIES <- .kmp_time("read kmp_huc6.geojson",
+  sf::st_read("data/kmp_huc6.geojson", quiet = TRUE))
 HUC6_BOUNDARIES <- HUC6_BOUNDARIES[order(HUC6_BOUNDARIES$huc6), ]
 
 SUBZONES <- c(
@@ -100,6 +117,11 @@ SUBZONE_CHOICES <- setNames(
   vapply(SUBZONES, `[[`, character(1), "id"),
   vapply(SUBZONES, `[[`, character(1), "name")
 )
+
+STARTUP_TIMINGS[["TOTAL eager startup"]] <-
+  as.numeric(Sys.time() - .KMP_T0, units = "secs")
+message(sprintf("[startup] %-32s %6.2fs", "TOTAL eager startup",
+                STARTUP_TIMINGS[["TOTAL eager startup"]]))
 
 
 # --- UI ----------------------------------------------------------------------
@@ -1180,8 +1202,34 @@ server <- function(input, output, session) {
       tags$ul(lapply(SCENARIO_CHECK$issues, tags$li))
     ) else NULL
 
+    # Startup timing breakdown — captured by .kmp_time() during eager
+    # boot. Useful for prioritising perf work (which step dominates
+    # cold start? boundary read? csv parse? package attach?).
+    timing_block <- if (length(STARTUP_TIMINGS) > 0) {
+      total <- STARTUP_TIMINGS[["TOTAL eager startup"]]
+      rows <- lapply(names(STARTUP_TIMINGS), function(nm) {
+        dt <- STARTUP_TIMINGS[[nm]]
+        pct <- if (!is.null(total) && total > 0) sprintf("%4.0f%%",
+                                                         100 * dt / total) else ""
+        tags$tr(
+          tags$td(nm),
+          tags$td(sprintf("%.2fs", dt), style = "text-align: right;"),
+          tags$td(pct, style = "text-align: right; color: #888;")
+        )
+      })
+      tagList(
+        tags$h5("Startup timing", class = "mt-3"),
+        tags$table(
+          class = "table table-sm",
+          style = "max-width: 480px; font-size: 0.85rem;",
+          tags$tbody(rows)
+        )
+      )
+    } else NULL
+
     tagList(
       scenario_block,
+      timing_block,
 
       tags$h5("Active source", class = "mt-3"),
       tags$ul(

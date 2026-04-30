@@ -9,6 +9,9 @@
 #
 # Edit this file to add, remove, or tune scenarios. The app loads
 # this at startup; no code changes required.
+#
+# All weights start at 1 -- the user can adjust per-metric weight in
+# Step 3.
 
 scenarios:
 
@@ -25,11 +28,11 @@ scenarios:
       "Climate resiliency index": 1
       "Climate refugia score": 1
       "Summer water stress (CWD, mm)": 1
-      "Lost meadow potential (% area)": 2
+      "Lost meadow potential (% area)": 1
       "Meadow density (% area)": 1
       "Fish of concern (# spp)": 1
-      "Native fish richness (# spp)": 0.5
-      "Rare amphibian richness": 0.5
+      "Native fish richness (# spp)": 1
+      "Rare amphibian richness": 1
       "Federal ownership (%)": 1
 
   - id: kmp_fire
@@ -41,13 +44,13 @@ scenarios:
       with federal-ownership share so surfaced HUCs are
       treatable through federal-partner pathways.
     weights:
-      "Recent fire (% area, 10yr)": 3
+      "Recent fire (% area, 10yr)": 1
       "Recent fire (% area, 3yr)": 1
-      "Unburned 30yr (%)": 2
-      "High severity fire (% area)": 2
+      "Unburned 30yr (%)": 1
+      "High severity fire (% area)": 1
       "Moderate-high severity fire (% area)": 1
       "Reburn area (% area)": 1
-      "Wildfire hazard potential": 2
+      "Wildfire hazard potential": 1
       "Federal ownership (%)": 1
 
   - id: kmp_climate_refuge
@@ -58,9 +61,9 @@ scenarios:
       hydrology, and inverse summer water stress -- HUCs expected to
       remain viable habitat under warming trends.
     weights:
-      "Climate resiliency index": 3
-      "Climate refugia score": 3
-      "Snowpack (peak SWE, mm)": 2
+      "Climate resiliency index": 1
+      "Climate refugia score": 1
+      "Snowpack (peak SWE, mm)": 1
       "Summer water stress (CWD, mm)": 1
       "Lost meadow potential (% area)": 1
       "Meadow density (% area)": 1
@@ -75,12 +78,12 @@ scenarios:
       meadow restoration potential and refugia signal that support
       cool-water fish persistence under warming.
     weights:
-      "Coho salmon present": 3
-      "Chinook salmon present": 2
+      "Coho salmon present": 1
+      "Chinook salmon present": 1
       "Steelhead/rainbow trout present": 1
-      "Salmonid species (# spp)": 2
+      "Salmonid species (# spp)": 1
       "Native fish richness (# spp)": 1
-      "Fish of concern (# spp)": 2
+      "Fish of concern (# spp)": 1
       "Lost meadow potential (% area)": 1
       "Meadow density (% area)": 1
       "Climate refugia score": 1

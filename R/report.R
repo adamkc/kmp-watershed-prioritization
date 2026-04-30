@@ -353,6 +353,11 @@ build_report_md <- function(rv_state,
     "# KMP Watershed Prioritization Report",
     "",
     sprintf("_Generated %s_", format(Sys.time(), "%Y-%m-%d %H:%M %Z")),
+    "",
+    "> **DRAFT.** This tool is under active development. Metric values, ",
+    "> scenarios, and weights are still being refined. Rankings here ",
+    "> are illustrative and should not yet drive real prioritization ",
+    "> decisions.",
     ""
   )
 

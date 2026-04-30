@@ -48,6 +48,15 @@ slider_id <- function(column_name) {
   paste0("w_", gsub("[^A-Za-z0-9]+", "_", column_name))
 }
 
+# Per-tab DRAFT marker. Sits at the top of each nav_panel content area
+# so the DRAFT status is obvious no matter which tab the user lands on.
+draft_tab_header <- function(extra_text = NULL) {
+  div(class = "draft-tab-header",
+      tags$span(class = "draft-pill", "DRAFT"),
+      tags$em(extra_text %||%
+              "Output is illustrative -- under active development."))
+}
+
 # Inline "?" help icon with a bslib tooltip. Use in label strings
 # to explain a control without cluttering the label text.
 help_icon <- function(text, placement = "top") {
@@ -164,10 +173,53 @@ ui <- page_sidebar(
     .report-body code { background: #f0f0f0; padding: 0.1em 0.3em;
                         border-radius: 3px; font-size: 0.9em; }
     .report-body em { color: #6c757d; }
+
+    /* DRAFT banner + per-tab DRAFT pill */
+    .draft-banner {
+      background: #fff3cd;
+      border: 1px solid #f0c36d;
+      border-left: 4px solid #b45309;
+      color: #5a3e0a;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      padding: 0.55rem 0.8rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+    .draft-banner strong { color: #7a4f08; letter-spacing: 0.5px; }
+    .draft-pill {
+      display: inline-block;
+      background: #b45309;
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .draft-tab-header {
+      display: flex; align-items: center;
+      font-size: 0.75rem; color: #5a3e0a;
+      padding: 6px 10px; margin: 4px 0 6px 0;
+      background: #fff8e1; border-bottom: 1px solid #f0c36d;
+    }
   "))),
 
   sidebar = sidebar(
     width = 380,
+
+    div(class = "draft-banner",
+        tags$span(class = "draft-pill", "DRAFT"),
+        tags$strong("Tool under development."),
+        tags$br(),
+        "Metric values, scenarios, and weights are still being refined. ",
+        "Rankings are illustrative and should not yet drive real ",
+        "prioritization decisions. See the ",
+        tags$a(href = "https://github.com/adamkc/kmp-watershed-prioritization/blob/main/docs/data-acquisition.md",
+               target = "_blank", "data-acquisition tracker"),
+        " for source notes and what's still planned."),
 
     uiOutput("workflow_ui")
   ),
@@ -177,11 +229,13 @@ ui <- page_sidebar(
 
     nav_panel(
       title = "Map",
+      draft_tab_header(),
       leafletOutput("map", height = "620px")
     ),
 
     nav_panel(
       title = "Ranked HUCs",
+      draft_tab_header(),
       div(class = "d-flex justify-content-between align-items-center my-2",
           p(class = "text-muted small mb-0",
             "Click any column header to sort. Per-metric bin scores (1-5) shown right of the composite."),
@@ -192,6 +246,7 @@ ui <- page_sidebar(
 
     nav_panel(
       title = "Sensitivity",
+      draft_tab_header(),
       div(class = "p-2",
         p(class = "text-muted small mb-2",
           "Monte Carlo sensitivity: randomly perturb the current weights ",
@@ -232,6 +287,7 @@ ui <- page_sidebar(
 
     nav_panel(
       title = "Report",
+      draft_tab_header(),
       div(class = "p-2",
         div(class = "d-flex justify-content-between align-items-start mb-3",
             p(class = "text-muted small mb-0 me-3",
@@ -251,6 +307,7 @@ ui <- page_sidebar(
 
     nav_panel(
       title = "Diagnostics",
+      draft_tab_header(),
       uiOutput("diagnostics_panel")
     )
   )

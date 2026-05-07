@@ -306,6 +306,41 @@ ui <- page_sidebar(
     ),
 
     nav_panel(
+      title = "Acknowledgements",
+      div(class = "p-3 report-body",
+        tags$h2("Acknowledgements"),
+        tags$p(
+          "This prioritization tool grew out of work led by ",
+          tags$strong("Megan Ireson"), " at the ",
+          tags$strong("Scott River Watershed Council"), ", who ",
+          "developed the initial concept and prototype in collaboration ",
+          "with regional partners. That foundational work was funded by ",
+          "the ", tags$strong("California Department of Fish and Wildlife"),
+          " (CDFW)."
+        ),
+        tags$p(
+          "The tool was expanded to cover the broader Klamath Meadows ",
+          "Partnership zone by the ",
+          tags$strong("Klamath Meadows Partnership"),
+          ", with funding from the ",
+          tags$strong("Wildlife Conservation Board"), " (WCB)."
+        ),
+        tags$p(
+          "The interactive web application was developed by ",
+          tags$strong("Adam Cummings"),
+          ", with contributions from the entire KMP team."
+        ),
+        tags$hr(),
+        tags$p(class = "text-muted small",
+          "Source code and the data-acquisition tracker are on GitHub: ",
+          tags$a(href = "https://github.com/adamkc/kmp-watershed-prioritization",
+                 target = "_blank",
+                 "adamkc/kmp-watershed-prioritization"), "."
+        )
+      )
+    ),
+
+    nav_panel(
       title = "Diagnostics",
       draft_tab_header(),
       uiOutput("diagnostics_panel")

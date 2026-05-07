@@ -102,6 +102,28 @@ jobs:
           sed -i 's|<title>Shiny App</title>|<title>KMP Watershed Prioritization</title>|' _site/index.html
           grep '<title>' _site/index.html
 
+      - name: Inject GoatCounter analytics
+        # If the repo has a `GOATCOUNTER_CODE` Actions variable set
+        # (Settings -> Secrets and variables -> Actions -> Variables),
+        # inject a GoatCounter tracker before </head> in index.html.
+        # GoatCounter is a privacy-friendly, cookie-free analytics
+        # service; the snippet only fires on outer page load (it does
+        # not track interactions inside the Shiny iframe).
+        # If the variable is unset, this step is a no-op.
+        env:
+          GC_CODE: ${{ vars.GOATCOUNTER_CODE }}
+        run: |
+          if [ -z "$GC_CODE" ]; then
+            echo "GOATCOUNTER_CODE not set -- skipping analytics injection."
+            exit 0
+          fi
+          SNIPPET="<script data-goatcounter=\"https://${GC_CODE}.goatcounter.com/count\" async src=\"//gc.zgo.at/count.js\"></script>"
+          # Use awk for safe inline replacement (no escaping headaches)
+          awk -v s="$SNIPPET" '/<\/head>/{print s} {print}' _site/index.html > _site/index.html.new \
+            && mv _site/index.html.new _site/index.html
+          echo "GoatCounter snippet injected. Verifying:"
+          grep -F "goatcounter" _site/index.html | head -3
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

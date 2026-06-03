@@ -141,6 +141,13 @@ ui <- page_sidebar(
 
   tags$head(
     tags$title("KMP Watershed Prioritization"),
+    # Leaflet caches its pixel size and only auto-corrects on a window
+    # resize, not when a Bootstrap tab goes hidden -> visible. Returning
+    # to a tab fires shown.bs.tab; dispatch a resize so the map (and any
+    # other widgets) recompute their size and render at the right place.
+    tags$script(HTML(
+      "$(document).on('shown.bs.tab', function(){ window.dispatchEvent(new Event('resize')); });"
+    )),
     tags$style(HTML("
     .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
     .slider-name { width: 46%; flex-shrink: 0; font-size: 0.8rem;
@@ -865,6 +872,13 @@ server <- function(input, output, session) {
         lng2 = KMP_BBOX[["xmax"]], lat2 = KMP_BBOX[["ymax"]]
       )
   })
+
+  # Keep the map rendered even when the Map tab is hidden. Otherwise Shiny
+  # suspends the output and, on return, re-emits only the renderLeaflet
+  # base map -- wiping the choropleth, legend, and rank badges that the
+  # observe() below adds via leafletProxy (those don't get re-added unless
+  # active_joined()/ranking() change, which a tab switch doesn't trigger).
+  outputOptions(output, "map", suspendWhenHidden = FALSE)
 
   observe({
     # HUCs render as grey outlines as soon as a sub-zone is selected

@@ -313,6 +313,13 @@ ui <- page_sidebar(
     ),
 
     nav_panel(
+      title = "Methods",
+      div(class = "p-3 report-body",
+        includeMarkdown("data/methods.md")
+      )
+    ),
+
+    nav_panel(
       title = "Acknowledgements",
       div(class = "p-3 report-body",
         tags$h2("Acknowledgements"),

@@ -315,7 +315,7 @@ ui <- page_sidebar(
     nav_panel(
       title = "Methods",
       div(class = "p-3 report-body",
-        includeMarkdown("data/methods.md")
+        shiny::markdown(paste(readLines("data/methods.md", warn = FALSE), collapse = "\n"))
       )
     ),
 

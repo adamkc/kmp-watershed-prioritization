@@ -56,7 +56,7 @@ make_prioritization_map <- function(joined_sf,
                      ggplot2::aes(fill = composite),
                      color = "#333", linewidth = 0.18) +
     ggplot2::scale_fill_distiller(
-      palette   = "YlOrRd",
+      palette   = "Purples",
       direction = 1,
       name      = "Composite\nscore",
       na.value  = "#cccccc"
@@ -189,7 +189,7 @@ make_faceted_metric_map <- function(joined_sf,
     ggplot2::geom_sf(ggplot2::aes(fill = bin),
                      color = "#666", linewidth = 0.08) +
     ggplot2::scale_fill_distiller(
-      palette   = "YlOrRd",
+      palette   = "Purples",
       direction = 1,
       limits    = c(1, 5),
       breaks    = 1:5,

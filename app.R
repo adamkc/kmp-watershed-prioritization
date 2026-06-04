@@ -942,7 +942,7 @@ server <- function(input, output, session) {
           )
         )
     } else {
-      pal <- colorNumeric("YlOrRd", domain = comp_vals, na.color = "#cccccc")
+      pal <- colorNumeric("Purples", domain = comp_vals, na.color = "#cccccc")
       proxy <- proxy |>
         addPolygons(
           data = sf_wgs, group = "hucs",
@@ -957,7 +957,7 @@ server <- function(input, output, session) {
         ) |>
         addLegend(
           position = "bottomright", pal = pal, values = comp_vals,
-          title = "Composite<br/>score", opacity = 0.85
+          title = "Composite score<br/><span style='font-weight:400;font-size:11px;color:#555'>darker = higher priority</span>", opacity = 0.85
         )
     }
 

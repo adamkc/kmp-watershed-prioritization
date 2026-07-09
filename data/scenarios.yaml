@@ -7,84 +7,85 @@
 # real data; planned metrics (those with `planned: true` in
 # data/metrics.yaml) cannot appear here.
 #
-# Edit this file to add, remove, or tune scenarios. The app loads
-# this at startup; no code changes required.
+# The scenarios below are intentionally narrow: 3-4 metrics each, each
+# expressing a single coherent management thesis rather than a broad
+# category sweep. Compound "balanced" scenarios (fire AND unburned AND
+# biodiversity...) tend to average out and surface middle-of-the-road
+# HUCs; single-thesis scenarios surface HUCs that actually match the
+# thesis. Users can start from one of these and add/remove metrics in
+# Step 3 to tune further.
 #
 # All weights start at 1 -- the user can adjust per-metric weight in
 # Step 3.
 
 scenarios:
 
-  - id: kmp_general
-    name: KMP General Scenario
+  - id: postfire_meadows
+    name: Post-fire Meadow Restoration
     description: >
-      Balanced prioritization across categories: fire risk and
-      opportunity, climate resilience, meadow restoration potential,
-      aquatic biodiversity, and federal-partnership readiness. A
-      reasonable starting point when no single theme dominates.
+      Watersheds that burned in the past 10 years, have inventoried
+      meadows, and sit on federal land -- the classic "shovel-ready
+      meadow restoration in an open post-fire canopy on public land"
+      pattern.
     weights:
       "Recent fire (% area, 10yr)": 1
-      "Wildfire hazard potential": 1
-      "Climate resiliency index": 1
-      "Climate refugia score": 1
-      "Summer water stress (CWD, mm)": 1
-      "Lost meadow potential (% area)": 1
       "Meadow density (% area)": 1
-      "Fish of concern (# spp)": 1
-      "Native fish richness (# spp)": 1
-      "Rare amphibian richness": 1
       "Federal ownership (%)": 1
 
-  - id: kmp_fire
-    name: KMP Fire Scenario
+  - id: unburned_federal
+    name: Fire-suppressed Federal Forest
     description: >
-      Fire-focused prioritization. Elevates recent fire history,
-      unburned stands due for disturbance, high-severity hot spots,
-      and the synthesised Wildfire Hazard Potential signal -- paired
-      with federal-ownership share so surfaced HUCs are
-      treatable through federal-partner pathways.
+      Watersheds that have not burned in 30 years, carry high
+      wildfire-hazard potential, and sit on federal land -- candidates
+      for prescribed fire or fuels-reduction treatments through a
+      federal partner.
     weights:
-      "Recent fire (% area, 10yr)": 1
-      "Recent fire (% area, 3yr)": 1
       "Unburned 30yr (%)": 1
-      "High severity fire (% area)": 1
-      "Moderate-high severity fire (% area)": 1
-      "Reburn area (% area)": 1
       "Wildfire hazard potential": 1
       "Federal ownership (%)": 1
 
-  - id: kmp_climate_refuge
-    name: KMP Climate Refuge Scenario
+  - id: climate_refuge_meadows
+    name: Climate-refuge Meadows
     description: >
-      Climate-focused prioritization. Elevates topo-edaphic resiliency
-      (TNC), vegetation-refugia score (CDFW ACE), snowpack-fed
-      hydrology, and inverse summer water stress -- HUCs expected to
-      remain viable habitat under warming trends.
+      Meadows in watersheds with high topo-edaphic resilience and
+      strong projected vegetation refugia -- places most likely to
+      remain functional meadow systems under warming.
     weights:
-      "Climate resiliency index": 1
       "Climate refugia score": 1
-      "Snowpack (peak SWE, mm)": 1
-      "Summer water stress (CWD, mm)": 1
-      "Lost meadow potential (% area)": 1
+      "Climate resiliency index": 1
       "Meadow density (% area)": 1
-      "Terrestrial connectivity rank": 1
 
-  - id: kmp_salmonid
-    name: KMP Salmonid Scenario
+  - id: salmonid_strongholds
+    name: Salmonid Strongholds
     description: >
-      Anadromous-fish-focused prioritization. Elevates HUCs with
-      diverse salmonid assemblages (especially Coho and Chinook), high
-      overall native fish richness, listed-fish counts, and the wet-
-      meadow restoration potential and refugia signal that support
-      cool-water fish persistence under warming.
+      Watersheds that host both Coho and Chinook salmon and are rich
+      in native fish overall -- protect-and-enhance priorities for
+      anadromous-fish conservation.
     weights:
       "Coho salmon present": 1
       "Chinook salmon present": 1
-      "Steelhead/rainbow trout present": 1
-      "Salmonid species (# spp)": 1
       "Native fish richness (# spp)": 1
-      "Fish of concern (# spp)": 1
+
+  - id: snowmelt_headwaters
+    name: Snowmelt-fed Headwaters
+    description: >
+      Watersheds with high April 1 snowpack, substantial lost-meadow
+      potential, and low summer water stress -- the wet, snow-fed
+      headwater systems where meadow rewatering has the biggest
+      hydrologic payoff.
+    weights:
+      "Snowpack (peak SWE, mm)": 1
       "Lost meadow potential (% area)": 1
-      "Meadow density (% area)": 1
-      "Climate refugia score": 1
       "Summer water stress (CWD, mm)": 1
+
+  - id: reburn_hotspots
+    name: Reburn Hotspots on Federal Land
+    description: >
+      Watersheds that have burned in multiple years and carry high
+      recent-fire severity, on federal land -- degraded post-fire
+      landscapes where recovery has been repeatedly interrupted and a
+      federal-partner intervention is most likely to stick.
+    weights:
+      "Reburn area (% area)": 1
+      "High severity fire (% area)": 1
+      "Federal ownership (%)": 1

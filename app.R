@@ -1382,17 +1382,28 @@ server <- function(input, output, session) {
       sprintf("kmp_report_%s.html", format(Sys.time(), "%Y%m%d_%H%M"))
     },
     content = function(file) {
-      # For HTML: substitute placeholders with inline base64 images.
-      md <- fill_report_chart_placeholders(
-        report_md(),
-        map_plot         = report_chart_map(),
-        ranking_plot     = report_chart_ranking(),
-        facets_plot      = report_chart_facets(),
-        sensitivity_plot = report_chart_sensitivity(),
-        mode             = "html"
-      )
-      body <- as.character(shiny::markdown(md))
-      writeLines(render_standalone_html(body), file, useBytes = TRUE)
+      # For HTML: substitute placeholders with inline base64 images. Guard
+      # every step so a chart-build or rasterize failure (which can happen
+      # under webR / shinylive) degrades gracefully instead of failing the
+      # whole download with no file at all. Building each chart is wrapped
+      # so one bad chart can't sink the others, and the overall assembly
+      # falls back to a text-only report as a last resort.
+      safe <- function(expr) tryCatch(expr, error = function(e) NULL)
+      html <- tryCatch({
+        md <- fill_report_chart_placeholders(
+          report_md(),
+          map_plot         = safe(report_chart_map()),
+          ranking_plot     = safe(report_chart_ranking()),
+          facets_plot      = safe(report_chart_facets()),
+          sensitivity_plot = safe(report_chart_sensitivity()),
+          mode             = "html"
+        )
+        render_standalone_html(as.character(shiny::markdown(md)))
+      }, error = function(e) {
+        md <- fill_report_chart_placeholders(report_md(), mode = "text")
+        render_standalone_html(as.character(shiny::markdown(md)))
+      })
+      writeLines(html, file, useBytes = TRUE)
     }
   )
 

@@ -255,17 +255,30 @@ make_ranking_chart <- function(ranking_df, n = 15) {
 
 #' Render a ggplot to a base64-encoded PNG data URI suitable for
 #' embedding in an HTML document as <img src="...">.
+#'
+#' Fail-safe: rasterizing a single plot can fail in some environments
+#' (e.g. a font or graphics-device edge case under webR / shinylive). A
+#' failure here must NOT sink the whole HTML download, so on error this
+#' returns a short note instead of throwing -- the other charts, tables,
+#' and text still make it into the file.
 plot_to_data_uri <- function(plot, width = 7, height = 4.5, dpi = 110) {
   if (is.null(plot)) return("")
-  tmp <- tempfile(fileext = ".png")
-  on.exit(unlink(tmp), add = TRUE)
-  ggplot2::ggsave(tmp, plot, width = width, height = height,
-                  dpi = dpi, bg = "white")
-  b64 <- base64enc::base64encode(tmp)
-  sprintf(
-    '\n\n<p><img src="data:image/png;base64,%s" alt="Chart" style="max-width: 100%%; height: auto; display: block; margin: 1em auto;"></p>\n\n',
-    b64
-  )
+  tryCatch({
+    tmp <- tempfile(fileext = ".png")
+    on.exit(unlink(tmp), add = TRUE)
+    ggplot2::ggsave(tmp, plot, width = width, height = height,
+                    dpi = dpi, bg = "white")
+    b64 <- base64enc::base64encode(tmp)
+    sprintf(
+      '\n\n<p><img src="data:image/png;base64,%s" alt="Chart" style="max-width: 100%%; height: auto; display: block; margin: 1em auto;"></p>\n\n',
+      b64
+    )
+  }, error = function(e) {
+    sprintf(
+      "\n\n_(This chart could not be embedded in the downloaded file (%s). See the interactive Report tab, or use your browser's Print → Save as PDF for a charted version.)_\n\n",
+      conditionMessage(e)
+    )
+  })
 }
 
 

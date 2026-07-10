@@ -43,6 +43,19 @@ source("R/report.R")
 
 options(shiny.maxRequestSize = 30 * 1024^2)
 
+# Chrome + shinylive download workaround (Chromium issue 468227). Under
+# shinylive the file is served by the service worker; Chrome's handling of
+# the anchor's `download` attribute conflicts with that and rejects the
+# download ("file wasn't available on site"). Stripping the attribute lets
+# Chrome follow the URL and honour the Content-Disposition filename, and
+# it still works in Firefox. Overriding the name here fixes every
+# downloadButton in the UI at once.
+downloadButton <- function(...) {
+  tag <- shiny::downloadButton(...)
+  tag$attribs$download <- NULL
+  tag
+}
+
 # Derive a Shiny-safe input ID from a (possibly messy) column name.
 slider_id <- function(column_name) {
   paste0("w_", gsub("[^A-Za-z0-9]+", "_", column_name))

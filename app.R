@@ -511,7 +511,7 @@ server <- function(input, output, session) {
           p(class = "text-muted small mb-0",
             "Narrow the analysis by one grouping at a time. ",
             tags$strong("Region"), " groups HUCs by EPA Level III ",
-            "ecoregion (Coastal / Klamath / Cascades-Modoc); ",
+            "ecoregion (Coastal/Foothills / Klamath / Cascades-Modoc); ",
             tags$strong("National forest"), " uses USFS administrative ",
             "boundaries (a HUC touching two forests appears under both). ",
             tags$strong("HUC6"), " units are a temporary placeholder ",

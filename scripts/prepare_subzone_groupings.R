@@ -45,18 +45,18 @@ FOREST_FILE <- "data/source/usfs_forests/kmp_forests_raw.geojson"
 OUT_CSV     <- "data/huc10_groupings.csv"
 
 # --- Editable mapping: EPA Level III ecoregion -> KMP region ----------------
-# Three distinct groupings requested: Coastal, Klamath, Cascades-Modoc.
-# The Klamath Mountains and Coast Range ecoregions map cleanly. The
-# "Central California Foothills and Coastal Mountains" ecoregion here
-# spans coastal-draining basins (Russian, Napa, Sonoma, Bay, Clear Lake)
-# and inner-Coast-Range Sacramento tributaries; its name and the majority
-# of its HUCs are coastal, so it is grouped with Coastal. The volcanic
-# east (Cascades, Eastern Cascades, Modoc/Basin-and-Range) forms
+# Three distinct groupings requested: Coastal/Foothills, Klamath,
+# Cascades-Modoc. The Klamath Mountains and Coast Range ecoregions map
+# cleanly. The "Central California Foothills and Coastal Mountains"
+# ecoregion here spans coastal-draining basins (Russian, Napa, Sonoma,
+# Bay, Clear Lake) and inner-Coast-Range Sacramento tributaries, so the
+# bucket is named Coastal/Foothills to cover both. The volcanic east
+# (Cascades, Eastern Cascades, Modoc/Basin-and-Range) forms
 # Cascades-Modoc. Edit this table to re-bucket any ecoregion.
 REGION_MAP <- c(
-  "Coast Range"                                         = "Coastal",
-  "Central California Foothills and Coastal Mountains"  = "Coastal",
-  "Central California Valley"                            = "Coastal",
+  "Coast Range"                                         = "Coastal/Foothills",
+  "Central California Foothills and Coastal Mountains"  = "Coastal/Foothills",
+  "Central California Valley"                            = "Coastal/Foothills",
   "Klamath Mountains/California High North Coast Range"  = "Klamath",
   "Cascades"                                            = "Cascades-Modoc",
   "Eastern Cascades Slopes and Foothills"               = "Cascades-Modoc",

@@ -63,7 +63,7 @@ that the app reads at startup.
 
 | Dataset | File | Source | Notes |
 |---|---|---|---|
-| EPA Level III ecoregions (CA) | `data/ca_eco_l3/` (shapefile) | US EPA Ecoregions | Region assignment input. Each HUC10 → one of Coastal / Klamath / Cascades-Modoc by majority-area overlap; L3→region map is an editable table in `scripts/prepare_subzone_groupings.R`. |
+| EPA Level III ecoregions (CA) | `data/ca_eco_l3/` (shapefile) | US EPA Ecoregions | Region assignment input. Each HUC10 → one of Coastal/Foothills / Klamath / Cascades-Modoc by majority-area overlap; L3→region map is an editable table in `scripts/prepare_subzone_groupings.R`. |
 | USFS Administrative Forest Boundaries | `data/source/usfs_forests/kmp_forests_raw.geojson` | USFS EDW ArcGIS service | Forest-membership input (gitignored source). Fetch via `scripts/acquire_usfs_forests.R`. Any-overlap membership: a HUC touching two forests appears under both. |
 | **Sub-zone groupings (derived, committed)** | `data/huc10_groupings.csv` | Built by `scripts/prepare_subzone_groupings.R` | Long format `huccode, axis, value` for `axis ∈ {region, forest}`. This is the file the app actually loads; regenerate it whenever the ecoregion map or forest layer changes. |
 

@@ -67,9 +67,35 @@ jobs:
           cp -r R "$STAGE/"
           cp -r data "$STAGE/"
           if [ -d www ]; then cp -r www "$STAGE/"; fi
+
+          # Keep the eagerly-loaded bundle small: the app only needs the
+          # KMP-only HUC10 (default map) and HUC6 (sub-zone list) at startup.
+          # HUC4/8/12 (uploads at those scales) and the statewide all-CA
+          # HUC10 (kmp_huc10_ca.geojson -- needed only when someone uploads
+          # non-KMP HUC10s) are dropped from the bundle here and re-published
+          # below as static files under _site/boundaries/, fetched on demand
+          # by load_boundaries(). Saves ~14 MB off every cold start.
+          rm -f "$STAGE/data/kmp_huc4.geojson" \
+                "$STAGE/data/kmp_huc8.geojson" \
+                "$STAGE/data/kmp_huc12.geojson" \
+                "$STAGE/data/kmp_huc10_ca.geojson"
+
+          # Absolute URL of the boundaries/ folder, read at runtime by
+          # remote_boundary_url(). GitHub Pages project-site convention:
+          # https://<owner>.github.io/<repo>/. Override with the
+          # ASSET_BASE_URL repo variable if a custom domain is in use.
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          BASE="${ASSET_BASE_URL:-https://${OWNER}.github.io/${REPO}}"
+          BASE="${BASE%/}/boundaries/"
+          echo "$BASE" > "$STAGE/data/asset_base.txt"
+          echo "asset_base.txt -> $BASE"
+
           # Drop a sentinel so renv definitely roots here.
           touch "$STAGE/.here"
           ls -la "$STAGE"
+        env:
+          ASSET_BASE_URL: ${{ vars.ASSET_BASE_URL }}
 
       - name: Build shinylive bundle
         # Use shinylive's default web assets (0.10.8 / webR 0.5.9 at
@@ -91,6 +117,16 @@ jobs:
               verbose = TRUE
             )
           '
+
+      - name: Publish on-demand boundary layers as static assets
+        # These are the HUC levels dropped from the shinylive bundle
+        # above. Served as plain files alongside the app so the browser
+        # only downloads them when an upload actually needs that scale.
+        run: |
+          mkdir -p _site/boundaries
+          cp data/kmp_huc4.geojson data/kmp_huc8.geojson data/kmp_huc12.geojson \
+             data/kmp_huc10_ca.geojson _site/boundaries/
+          ls -la _site/boundaries
 
       - name: Set browser tab title
         # shinylive hardcodes <title>Shiny App</title> in the generated

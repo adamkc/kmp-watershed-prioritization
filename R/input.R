@@ -130,25 +130,99 @@ validate_input <- function(df) {
 }
 
 
-#' Load bundled boundary geometry for a given HUC level.
+#' Resolve a remote URL for an on-demand boundary file.
 #'
-#' For HUC10, prefers the local all-CA file (kmp_huc10_ca.geojson) if
-#' present, falling back to the committed KMP-only kmp_huc10.geojson.
-#' This lets local users upload non-KMP HUC10 CSVs and still get a
-#' rendered map, while keeping the deployed shinylive bundle small.
-load_boundaries <- function(level, data_dir = "data") {
-  candidates <- if (level == 10L) {
-    c(file.path(data_dir, "kmp_huc10_ca.geojson"),
-      file.path(data_dir, "kmp_huc10.geojson"))
-  } else {
-    file.path(data_dir, paste0("kmp_huc", level, ".geojson"))
+#' The deployed shinylive bundle ships only the layers needed eagerly
+#' (HUC10 KMP-only for the default map, HUC6 for the sub-zone list).
+#' Bigger / rarer layers -- HUC4/8/12 and the statewide all-CA HUC10
+#' (kmp_huc10_ca.geojson, needed only when someone uploads non-KMP
+#' HUC10s) -- are hosted as plain static files under the site's
+#' `boundaries/` folder and fetched on demand. `data/asset_base.txt`
+#' holds that folder's absolute URL and is written by the deploy
+#' workflow; it is absent in local checkouts (where every layer is on
+#' disk), so this returns NULL there.
+remote_boundary_url <- function(fname, data_dir = "data") {
+  base_file <- file.path(data_dir, "asset_base.txt")
+  if (!file.exists(base_file)) return(NULL)
+  base <- trimws(readLines(base_file, warn = FALSE)[1])
+  if (length(base) == 0 || !nzchar(base)) return(NULL)
+  if (!grepl("/$", base)) base <- paste0(base, "/")
+  paste0(base, fname)
+}
+
+
+#' Fetch a boundary file from the site's `boundaries/` folder into the
+#' session temp dir (cached, so repeat uploads don't refetch). Returns
+#' the local path, or NULL if there is no asset base or the fetch fails.
+fetch_boundary <- function(fname, data_dir = "data") {
+  url <- remote_boundary_url(fname, data_dir)
+  if (is.null(url)) return(NULL)
+  dest <- file.path(tempdir(), fname)
+  if (!file.exists(dest)) {
+    ok <- tryCatch({
+      utils::download.file(url, dest, quiet = TRUE, mode = "wb")
+      file.exists(dest) && file.info(dest)$size > 0
+    }, error = function(e) FALSE)
+    if (!isTRUE(ok)) {
+      if (file.exists(dest)) unlink(dest)
+      return(NULL)
+    }
   }
-  path <- candidates[file.exists(candidates)][1]
-  if (is.na(path)) {
-    stop("Boundary file not found: tried ",
-         paste(candidates, collapse = ", "), call. = FALSE)
+  dest
+}
+
+
+#' HUC10 boundaries, covering whatever huccodes `need` requires.
+#'
+#' The default KMP analysis only touches the 203 KMP HUC10s, so the
+#' small committed kmp_huc10.geojson is used whenever it covers `need`.
+#' A custom upload can reference any California HUC10, which needs the
+#' statewide kmp_huc10_ca.geojson (~1,128 features): used from disk if
+#' present (local dev), otherwise fetched once from `boundaries/`.
+load_huc10_boundaries <- function(data_dir = "data", need = NULL) {
+  ca_local  <- file.path(data_dir, "kmp_huc10_ca.geojson")
+  kmp_local <- file.path(data_dir, "kmp_huc10.geojson")
+
+  kmp <- NULL
+  if (file.exists(kmp_local)) {
+    kmp <- sf::st_read(kmp_local, quiet = TRUE)
+    if (is.null(need) || all(need %in% kmp$huc10)) return(kmp)
   }
-  sf::st_read(path, quiet = TRUE)
+
+  # Need HUC10s beyond the KMP set (a statewide upload). Use the full
+  # all-CA layer: local if present, else fetched from boundaries/.
+  if (file.exists(ca_local)) return(sf::st_read(ca_local, quiet = TRUE))
+  dest <- fetch_boundary("kmp_huc10_ca.geojson", data_dir)
+  if (!is.null(dest)) return(sf::st_read(dest, quiet = TRUE))
+
+  # Couldn't get the fuller layer; fall back to whatever we have so the
+  # KMP HUCs at least still map (non-KMP uploads will show as unmatched).
+  if (!is.null(kmp)) return(kmp)
+  stop("No HUC10 boundary file available.", call. = FALSE)
+}
+
+
+#' Load boundary geometry for a given HUC level.
+#'
+#' Prefers a local file on disk; for levels not bundled in the
+#' lightweight deploy (HUC4/8/12, statewide HUC10) it fetches from the
+#' site's `boundaries/` folder. `need` is the set of huccodes the caller
+#' must be able to map -- used at HUC10 to decide between the small
+#' KMP-only file and the statewide layer.
+load_boundaries <- function(level, data_dir = "data", need = NULL) {
+  if (level == 10L) return(load_huc10_boundaries(data_dir, need))
+
+  fname <- paste0("kmp_huc", level, ".geojson")
+  path  <- file.path(data_dir, fname)
+  if (file.exists(path)) return(sf::st_read(path, quiet = TRUE))
+
+  dest <- fetch_boundary(fname, data_dir)
+  if (is.null(dest)) {
+    stop("Could not load the HUC", level, " boundary layer (not on disk ",
+         "and no remote asset base configured). The ranking table still ",
+         "works; only the map needs the boundary geometry.", call. = FALSE)
+  }
+  sf::st_read(dest, quiet = TRUE)
 }
 
 

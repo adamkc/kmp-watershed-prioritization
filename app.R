@@ -98,33 +98,66 @@ SCENARIOS       <- .kmp_time("load_scenarios",       load_scenarios("data/scenar
 SCENARIO_CHECK  <- .kmp_time("validate_scenarios",   validate_scenarios(SCENARIOS, MASTER_METRICS))
 METRICS_META    <- .kmp_time("load_metrics_meta",    load_metrics_meta("data/metrics.yaml"))
 
-# Sub-zone catalog. "Full KMP" plus one entry per HUC6 in the zone,
-# populated from data/kmp_huc6.geojson. These are placeholders -- the
-# KMP working group will eventually define geology- / ecology-based
-# analysis zones that replace the HUC6 units.
+# Sub-zone catalog: several grouping axes, one active at a time. Step 1
+# narrows the analysis by one scheme. Selector values are encoded
+# "<axis>:<value>" so a single selectInput (with optgroups) drives the
+# filter in active_data():
+#   full_kmp        whole zone
+#   huc6:<code>     HUC6 sub-zone (temporary placeholder units)
+#   region:<name>   ecological region, ecoregion-derived
+#   forest:<name>   national forest (USFS admin boundary; any-overlap)
+# region/forest membership is precomputed by
+# scripts/prepare_subzone_groupings.R into data/huc10_groupings.csv.
 HUC6_BOUNDARIES <- .kmp_time("read kmp_huc6.geojson",
   sf::st_read("data/kmp_huc6.geojson", quiet = TRUE))
 HUC6_BOUNDARIES <- HUC6_BOUNDARIES[order(HUC6_BOUNDARIES$huc6), ]
 
-SUBZONES <- c(
-  list(list(
-    id = "full_kmp",
-    name = "Full KMP",
-    description = "All HUCs in the KMP zone."
-  )),
-  lapply(seq_len(nrow(HUC6_BOUNDARIES)), function(i) {
-    h6  <- as.character(HUC6_BOUNDARIES$huc6[i])
-    nm  <- HUC6_BOUNDARIES$name[i]
-    list(
-      id = h6,
-      name = sprintf("%s (HUC6 %s)", nm, h6),
-      description = sprintf("HUCs within HUC6 %s (%s).", h6, nm)
-    )
-  })
+huc6_choices <- setNames(
+  paste0("huc6:", as.character(HUC6_BOUNDARIES$huc6)),
+  sprintf("%s (HUC6 %s)", HUC6_BOUNDARIES$name, HUC6_BOUNDARIES$huc6)
 )
-SUBZONE_CHOICES <- setNames(
-  vapply(SUBZONES, `[[`, character(1), "id"),
-  vapply(SUBZONES, `[[`, character(1), "name")
+
+# Region + forest membership (optional -- app still runs on Full KMP +
+# HUC6 if the lookup is absent). SUBZONE_MEMBERS maps an encoded value
+# to the set of huccodes it contains.
+GROUPINGS <- .kmp_time("read huc10_groupings.csv", tryCatch(
+  read.csv("data/huc10_groupings.csv", colClasses = "character"),
+  error = function(e) NULL
+))
+
+SUBZONE_MEMBERS <- list()
+region_choices  <- character(0)
+forest_choices  <- character(0)
+if (!is.null(GROUPINGS) && nrow(GROUPINGS) > 0) {
+  axis_choices <- function(axis) {
+    sub  <- GROUPINGS[GROUPINGS$axis == axis, , drop = FALSE]
+    vals <- sort(unique(sub$value))
+    enc  <- paste0(axis, ":", vals)
+    for (k in seq_along(vals)) {
+      SUBZONE_MEMBERS[[enc[k]]] <<- unique(sub$huccode[sub$value == vals[k]])
+    }
+    n <- vapply(vals, function(v) length(unique(sub$huccode[sub$value == v])),
+                integer(1))
+    setNames(enc, sprintf("%s (%d)", vals, n))
+  }
+  region_choices <- axis_choices("region")
+  forest_choices <- axis_choices("forest")
+}
+
+# Grouped choices for the Step-1 selectInput (optgroups), and a flat
+# value -> label lookup for step titles + report text.
+SUBZONE_GROUPED_CHOICES <- c(
+  list("Whole zone" = c("Full KMP" = "full_kmp")),
+  if (length(region_choices)) list("By region"          = region_choices),
+  if (length(forest_choices)) list("By national forest" = forest_choices),
+  list("By HUC6 sub-zone" = huc6_choices)
+)
+strip_count <- function(x) sub(" \\(\\d+\\)$", "", x)
+SUBZONE_LABELS <- c(
+  setNames("Full KMP", "full_kmp"),
+  setNames(names(huc6_choices),                unname(huc6_choices)),
+  setNames(strip_count(names(region_choices)), unname(region_choices)),
+  setNames(strip_count(names(forest_choices)), unname(forest_choices))
 )
 
 STARTUP_TIMINGS[["TOTAL eager startup"]] <-
@@ -387,19 +420,29 @@ server <- function(input, output, session) {
   # ---- Active dataset (master by default; uploaded replaces it) ------------
 
   active_data <- reactive({
-    src <- if (identical(rv$source_type, "upload") && !is.null(rv$uploaded)) {
-      rv$uploaded$data
-    } else {
-      MASTER_DATA
+    # An uploaded CSV brings its own HUCs, which have nothing to do with
+    # the KMP sub-zone groupings -- so uploads bypass the Step-1 filter
+    # entirely and always show every uploaded HUC.
+    if (identical(rv$source_type, "upload") && !is.null(rv$uploaded)) {
+      return(rv$uploaded$data)
     }
-    if (identical(rv$subzone_id, "full_kmp")) return(src)
 
-    # Otherwise rv$subzone_id is a HUC code at some level (currently
-    # HUC6). HUC IDs are hierarchical, so a HUC10 within HUC6 "180102"
-    # starts with "180102". Use the subzone length so this keeps
-    # working if we swap to a different HUC level later.
-    n <- nchar(rv$subzone_id)
-    keep <- substr(src$huccode, 1, n) == rv$subzone_id
+    src <- MASTER_DATA
+    sel <- rv$subzone_id
+    if (is.null(sel) || identical(sel, "full_kmp")) return(src)
+
+    # Region / forest membership is precomputed on the KMP HUC10 codes.
+    if (grepl("^(region|forest):", sel)) {
+      members <- SUBZONE_MEMBERS[[sel]]
+      if (is.null(members)) return(src)
+      return(src[src$huccode %in% members, , drop = FALSE])
+    }
+
+    # HUC6 ("huc6:<code>"): HUC IDs are hierarchical, so a HUC10 within
+    # HUC6 "180102" starts with "180102". Match on the code prefix.
+    code <- sub("^huc6:", "", sel)
+    n <- nchar(code)
+    keep <- substr(src$huccode, 1, n) == code
     src[keep, , drop = FALSE]
   })
 
@@ -418,7 +461,9 @@ server <- function(input, output, session) {
   active_joined <- reactive({
     d <- active_data(); lvl <- active_huc_level()
     req(d, lvl)
-    bnd <- load_boundaries(lvl)
+    # Pass the huccodes we need so HUC10 can pick the statewide layer
+    # when an upload references HUCs outside the bundled KMP set.
+    bnd <- load_boundaries(lvl, need = d$huccode)
     join_input_to_boundaries(d, bnd, lvl)
   })
 
@@ -442,7 +487,7 @@ server <- function(input, output, session) {
 
   output$workflow_ui <- renderUI({
     step1_title <- sprintf("Step 1. Sub-zone \u00B7 %s",
-                           names(SUBZONE_CHOICES)[SUBZONE_CHOICES == rv$subzone_id])
+                           SUBZONE_LABELS[[rv$subzone_id]] %||% "Full KMP")
     step2_title <- sprintf("Step 2. Metrics \u00B7 %s", rv$source_label)
     n_active <- length(rv$active_metrics)
     step3_title <- sprintf("Step 3. Weights \u00B7 %d metric%s",
@@ -461,12 +506,16 @@ server <- function(input, output, session) {
           value = "step1",
           title = step1_title,
           selectInput("subzone", label = NULL,
-                      choices = SUBZONE_CHOICES,
+                      choices = SUBZONE_GROUPED_CHOICES,
                       selected = rv$subzone_id, width = "100%"),
           p(class = "text-muted small mb-0",
-            "HUC6 sub-zones shown here are a temporary placeholder ",
-            "while the KMP working group defines geological / ",
-            "ecological analysis zones.")
+            "Narrow the analysis by one grouping at a time. ",
+            tags$strong("Region"), " groups HUCs by EPA Level III ",
+            "ecoregion (Coastal / Klamath / Cascades-Modoc); ",
+            tags$strong("National forest"), " uses USFS administrative ",
+            "boundaries (a HUC touching two forests appears under both). ",
+            tags$strong("HUC6"), " units are a temporary placeholder ",
+            "pending the working group's geological / ecological zones.")
         ),
 
         # --- Step 2: metrics source ---
@@ -1144,7 +1193,7 @@ server <- function(input, output, session) {
       source_label   = rv$source_label,
       active_metrics = rv$active_metrics
     )
-    subzone_name <- names(SUBZONE_CHOICES)[SUBZONE_CHOICES == rv$subzone_id]
+    subzone_name <- SUBZONE_LABELS[[rv$subzone_id]] %||% "Full KMP"
 
     join_info <- if (length(rv$active_metrics) > 0) active_joined() else
       list(n_matched = nrow(active_data()), unmatched_ids = character())

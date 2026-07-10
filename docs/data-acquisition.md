@@ -55,6 +55,18 @@ These are committed to the repo and ready to use. No further sourcing needed unl
 | HUC12 boundaries | `data/kmp_huc12.geojson` | USGS WBD | 837 features (KMP zone only). |
 | CA + OR state outlines | `data/context_states.geojson` | `maps` R package via `scripts/prepare_context_states.R` | Used for the report-map locator inset. |
 
+### Sub-zone grouping layers
+
+The Step-1 selector groups HUC10s by region and by national forest, in
+addition to HUC6. Membership is precomputed into a single small lookup
+that the app reads at startup.
+
+| Dataset | File | Source | Notes |
+|---|---|---|---|
+| EPA Level III ecoregions (CA) | `data/ca_eco_l3/` (shapefile) | US EPA Ecoregions | Region assignment input. Each HUC10 → one of Coastal / Klamath / Cascades-Modoc by majority-area overlap; L3→region map is an editable table in `scripts/prepare_subzone_groupings.R`. |
+| USFS Administrative Forest Boundaries | `data/source/usfs_forests/kmp_forests_raw.geojson` | USFS EDW ArcGIS service | Forest-membership input (gitignored source). Fetch via `scripts/acquire_usfs_forests.R`. Any-overlap membership: a HUC touching two forests appears under both. |
+| **Sub-zone groupings (derived, committed)** | `data/huc10_groupings.csv` | Built by `scripts/prepare_subzone_groupings.R` | Long format `huccode, axis, value` for `axis ∈ {region, forest}`. This is the file the app actually loads; regenerate it whenever the ecoregion map or forest layer changes. |
+
 ---
 
 ## Metric inventory

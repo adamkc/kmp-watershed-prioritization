@@ -1,0 +1,482 @@
+huccode,axis,value
+1710030901,forest,Klamath National Forest
+1710031101,forest,Klamath National Forest
+1710031103,forest,Klamath National Forest
+1801010102,forest,Klamath National Forest
+1801010103,forest,Klamath National Forest
+1801020413,forest,Klamath National Forest
+1801020414,forest,Klamath National Forest
+1801020501,forest,Klamath National Forest
+1801020502,forest,Klamath National Forest
+1801020503,forest,Klamath National Forest
+1801020602,forest,Klamath National Forest
+1801020603,forest,Klamath National Forest
+1801020605,forest,Klamath National Forest
+1801020606,forest,Klamath National Forest
+1801020607,forest,Klamath National Forest
+1801020608,forest,Klamath National Forest
+1801020609,forest,Klamath National Forest
+1801020610,forest,Klamath National Forest
+1801020611,forest,Klamath National Forest
+1801020701,forest,Klamath National Forest
+1801020702,forest,Klamath National Forest
+1801020703,forest,Klamath National Forest
+1801020704,forest,Klamath National Forest
+1801020705,forest,Klamath National Forest
+1801020801,forest,Klamath National Forest
+1801020802,forest,Klamath National Forest
+1801020803,forest,Klamath National Forest
+1801020804,forest,Klamath National Forest
+1801020805,forest,Klamath National Forest
+1801020806,forest,Klamath National Forest
+1801020901,forest,Klamath National Forest
+1801020902,forest,Klamath National Forest
+1801020903,forest,Klamath National Forest
+1801020904,forest,Klamath National Forest
+1801020905,forest,Klamath National Forest
+1801020906,forest,Klamath National Forest
+1801020908,forest,Klamath National Forest
+1801021001,forest,Klamath National Forest
+1801021002,forest,Klamath National Forest
+1801021003,forest,Klamath National Forest
+1801021004,forest,Klamath National Forest
+1801021101,forest,Klamath National Forest
+1801021102,forest,Klamath National Forest
+1801021104,forest,Klamath National Forest
+1801021105,forest,Klamath National Forest
+1801021109,forest,Klamath National Forest
+1801021110,forest,Klamath National Forest
+1802000303,forest,Klamath National Forest
+1802000304,forest,Klamath National Forest
+1802000401,forest,Klamath National Forest
+1802000213,forest,Lassen National Forest
+1802000219,forest,Lassen National Forest
+1802000302,forest,Lassen National Forest
+1802000303,forest,Lassen National Forest
+1802000304,forest,Lassen National Forest
+1802000305,forest,Lassen National Forest
+1802000307,forest,Lassen National Forest
+1802000308,forest,Lassen National Forest
+1802000309,forest,Lassen National Forest
+1802000310,forest,Lassen National Forest
+1802000311,forest,Lassen National Forest
+1802015101,forest,Lassen National Forest
+1802015103,forest,Lassen National Forest
+1802015104,forest,Lassen National Forest
+1802015402,forest,Lassen National Forest
+1802015403,forest,Lassen National Forest
+1801010202,forest,Mendocino National Forest
+1801010301,forest,Mendocino National Forest
+1801010302,forest,Mendocino National Forest
+1801010305,forest,Mendocino National Forest
+1801010401,forest,Mendocino National Forest
+1801010402,forest,Mendocino National Forest
+1801010404,forest,Mendocino National Forest
+1801010405,forest,Mendocino National Forest
+1801010501,forest,Mendocino National Forest
+1801011001,forest,Mendocino National Forest
+1801021201,forest,Mendocino National Forest
+1802011501,forest,Mendocino National Forest
+1802011502,forest,Mendocino National Forest
+1802011503,forest,Mendocino National Forest
+1802011504,forest,Mendocino National Forest
+1802011505,forest,Mendocino National Forest
+1802011601,forest,Mendocino National Forest
+1802011602,forest,Mendocino National Forest
+1802011603,forest,Mendocino National Forest
+1802011604,forest,Mendocino National Forest
+1802011605,forest,Mendocino National Forest
+1802015204,forest,Mendocino National Forest
+1802015503,forest,Mendocino National Forest
+1802015504,forest,Mendocino National Forest
+1802015602,forest,Mendocino National Forest
+1802015604,forest,Mendocino National Forest
+1802015605,forest,Mendocino National Forest
+1801020410,forest,Modoc National Forest
+1801020411,forest,Modoc National Forest
+1801020413,forest,Modoc National Forest
+1801020414,forest,Modoc National Forest
+1802000213,forest,Modoc National Forest
+1802000219,forest,Modoc National Forest
+1802000303,forest,Modoc National Forest
+1802000305,forest,Modoc National Forest
+1802000308,forest,Modoc National Forest
+1710031206,forest,Outside National Forest
+1801010206,forest,Outside National Forest
+1801010303,forest,Outside National Forest
+1801010304,forest,Outside National Forest
+1801010403,forest,Outside National Forest
+1801010502,forest,Outside National Forest
+1801010505,forest,Outside National Forest
+1801010508,forest,Outside National Forest
+1801010510,forest,Outside National Forest
+1801010511,forest,Outside National Forest
+1801010601,forest,Outside National Forest
+1801010602,forest,Outside National Forest
+1801010603,forest,Outside National Forest
+1801010604,forest,Outside National Forest
+1801010701,forest,Outside National Forest
+1801010702,forest,Outside National Forest
+1801010703,forest,Outside National Forest
+1801010704,forest,Outside National Forest
+1801010801,forest,Outside National Forest
+1801010802,forest,Outside National Forest
+1801010803,forest,Outside National Forest
+1801010804,forest,Outside National Forest
+1801010805,forest,Outside National Forest
+1801010806,forest,Outside National Forest
+1801010807,forest,Outside National Forest
+1801010808,forest,Outside National Forest
+1801010809,forest,Outside National Forest
+1801010901,forest,Outside National Forest
+1801010902,forest,Outside National Forest
+1801011002,forest,Outside National Forest
+1801011003,forest,Outside National Forest
+1801011004,forest,Outside National Forest
+1801011005,forest,Outside National Forest
+1801011006,forest,Outside National Forest
+1801011007,forest,Outside National Forest
+1801011008,forest,Outside National Forest
+1801011009,forest,Outside National Forest
+1802010401,forest,Outside National Forest
+1802010405,forest,Outside National Forest
+1802010406,forest,Outside National Forest
+1802010407,forest,Outside National Forest
+1802010408,forest,Outside National Forest
+1802011506,forest,Outside National Forest
+1802011606,forest,Outside National Forest
+1802011607,forest,Outside National Forest
+1802015203,forest,Outside National Forest
+1802015207,forest,Outside National Forest
+1802015208,forest,Outside National Forest
+1802015404,forest,Outside National Forest
+1802015405,forest,Outside National Forest
+1802015502,forest,Outside National Forest
+1802016201,forest,Outside National Forest
+1802016202,forest,Outside National Forest
+1802016203,forest,Outside National Forest
+1802016204,forest,Outside National Forest
+1805000101,forest,Outside National Forest
+1805000201,forest,Outside National Forest
+1805000202,forest,Outside National Forest
+1805000203,forest,Outside National Forest
+1805000204,forest,Outside National Forest
+1805000205,forest,Outside National Forest
+1805000206,forest,Outside National Forest
+1805000208,forest,Outside National Forest
+1805000503,forest,Outside National Forest
+1805000504,forest,Outside National Forest
+1710030901,forest,Rogue River-Siskiyou National Forests
+1710031101,forest,Rogue River-Siskiyou National Forests
+1710031103,forest,Rogue River-Siskiyou National Forests
+1710031104,forest,Rogue River-Siskiyou National Forests
+1710031202,forest,Rogue River-Siskiyou National Forests
+1710031203,forest,Rogue River-Siskiyou National Forests
+1801010101,forest,Rogue River-Siskiyou National Forests
+1801010102,forest,Rogue River-Siskiyou National Forests
+1801010104,forest,Rogue River-Siskiyou National Forests
+1801020604,forest,Rogue River-Siskiyou National Forests
+1801020606,forest,Rogue River-Siskiyou National Forests
+1801020609,forest,Rogue River-Siskiyou National Forests
+1801020610,forest,Rogue River-Siskiyou National Forests
+1801020611,forest,Rogue River-Siskiyou National Forests
+1801020901,forest,Rogue River-Siskiyou National Forests
+1801020902,forest,Rogue River-Siskiyou National Forests
+1801020904,forest,Rogue River-Siskiyou National Forests
+1801010202,forest,Shasta-Trinity National Forest
+1801010203,forest,Shasta-Trinity National Forest
+1801010402,forest,Shasta-Trinity National Forest
+1801020413,forest,Shasta-Trinity National Forest
+1801020501,forest,Shasta-Trinity National Forest
+1801020502,forest,Shasta-Trinity National Forest
+1801020701,forest,Shasta-Trinity National Forest
+1801020702,forest,Shasta-Trinity National Forest
+1801020704,forest,Shasta-Trinity National Forest
+1801020801,forest,Shasta-Trinity National Forest
+1801020802,forest,Shasta-Trinity National Forest
+1801020908,forest,Shasta-Trinity National Forest
+1801021001,forest,Shasta-Trinity National Forest
+1801021004,forest,Shasta-Trinity National Forest
+1801021101,forest,Shasta-Trinity National Forest
+1801021102,forest,Shasta-Trinity National Forest
+1801021103,forest,Shasta-Trinity National Forest
+1801021104,forest,Shasta-Trinity National Forest
+1801021105,forest,Shasta-Trinity National Forest
+1801021106,forest,Shasta-Trinity National Forest
+1801021107,forest,Shasta-Trinity National Forest
+1801021108,forest,Shasta-Trinity National Forest
+1801021109,forest,Shasta-Trinity National Forest
+1801021110,forest,Shasta-Trinity National Forest
+1801021111,forest,Shasta-Trinity National Forest
+1801021112,forest,Shasta-Trinity National Forest
+1801021201,forest,Shasta-Trinity National Forest
+1801021202,forest,Shasta-Trinity National Forest
+1801021203,forest,Shasta-Trinity National Forest
+1801021204,forest,Shasta-Trinity National Forest
+1801021205,forest,Shasta-Trinity National Forest
+1802000303,forest,Shasta-Trinity National Forest
+1802000304,forest,Shasta-Trinity National Forest
+1802000305,forest,Shasta-Trinity National Forest
+1802000309,forest,Shasta-Trinity National Forest
+1802000310,forest,Shasta-Trinity National Forest
+1802000311,forest,Shasta-Trinity National Forest
+1802000312,forest,Shasta-Trinity National Forest
+1802000313,forest,Shasta-Trinity National Forest
+1802000401,forest,Shasta-Trinity National Forest
+1802000402,forest,Shasta-Trinity National Forest
+1802000403,forest,Shasta-Trinity National Forest
+1802000404,forest,Shasta-Trinity National Forest
+1802000405,forest,Shasta-Trinity National Forest
+1802000501,forest,Shasta-Trinity National Forest
+1802000502,forest,Shasta-Trinity National Forest
+1802000503,forest,Shasta-Trinity National Forest
+1802000504,forest,Shasta-Trinity National Forest
+1802015103,forest,Shasta-Trinity National Forest
+1802015201,forest,Shasta-Trinity National Forest
+1802015202,forest,Shasta-Trinity National Forest
+1802015204,forest,Shasta-Trinity National Forest
+1802015205,forest,Shasta-Trinity National Forest
+1802015206,forest,Shasta-Trinity National Forest
+1802015401,forest,Shasta-Trinity National Forest
+1802015402,forest,Shasta-Trinity National Forest
+1802015403,forest,Shasta-Trinity National Forest
+1710031103,forest,Six Rivers National Forest
+1710031104,forest,Six Rivers National Forest
+1710031202,forest,Six Rivers National Forest
+1801010101,forest,Six Rivers National Forest
+1801010102,forest,Six Rivers National Forest
+1801010103,forest,Six Rivers National Forest
+1801010104,forest,Six Rivers National Forest
+1801010105,forest,Six Rivers National Forest
+1801010201,forest,Six Rivers National Forest
+1801010202,forest,Six Rivers National Forest
+1801010203,forest,Six Rivers National Forest
+1801010204,forest,Six Rivers National Forest
+1801010205,forest,Six Rivers National Forest
+1801010402,forest,Six Rivers National Forest
+1801010501,forest,Six Rivers National Forest
+1801010503,forest,Six Rivers National Forest
+1801010504,forest,Six Rivers National Forest
+1801010506,forest,Six Rivers National Forest
+1801010507,forest,Six Rivers National Forest
+1801010509,forest,Six Rivers National Forest
+1801020903,forest,Six Rivers National Forest
+1801020904,forest,Six Rivers National Forest
+1801020905,forest,Six Rivers National Forest
+1801020906,forest,Six Rivers National Forest
+1801020907,forest,Six Rivers National Forest
+1801020908,forest,Six Rivers National Forest
+1801020909,forest,Six Rivers National Forest
+1801020910,forest,Six Rivers National Forest
+1801020911,forest,Six Rivers National Forest
+1801021003,forest,Six Rivers National Forest
+1801021004,forest,Six Rivers National Forest
+1801021110,forest,Six Rivers National Forest
+1801021111,forest,Six Rivers National Forest
+1801021112,forest,Six Rivers National Forest
+1801021201,forest,Six Rivers National Forest
+1801021204,forest,Six Rivers National Forest
+1801021205,forest,Six Rivers National Forest
+1801020410,region,Cascades-Modoc
+1801020411,region,Cascades-Modoc
+1801020413,region,Cascades-Modoc
+1801020414,region,Cascades-Modoc
+1801020501,region,Cascades-Modoc
+1801020502,region,Cascades-Modoc
+1801020503,region,Cascades-Modoc
+1801020602,region,Cascades-Modoc
+1801020603,region,Cascades-Modoc
+1801020604,region,Cascades-Modoc
+1801020605,region,Cascades-Modoc
+1801020607,region,Cascades-Modoc
+1801020701,region,Cascades-Modoc
+1801020703,region,Cascades-Modoc
+1801020704,region,Cascades-Modoc
+1801020705,region,Cascades-Modoc
+1802000213,region,Cascades-Modoc
+1802000219,region,Cascades-Modoc
+1802000302,region,Cascades-Modoc
+1802000303,region,Cascades-Modoc
+1802000304,region,Cascades-Modoc
+1802000305,region,Cascades-Modoc
+1802000307,region,Cascades-Modoc
+1802000308,region,Cascades-Modoc
+1802000309,region,Cascades-Modoc
+1802000310,region,Cascades-Modoc
+1802000311,region,Cascades-Modoc
+1802000401,region,Cascades-Modoc
+1802000402,region,Cascades-Modoc
+1802015101,region,Cascades-Modoc
+1802015404,region,Cascades-Modoc
+1710031202,region,Coastal
+1710031203,region,Coastal
+1710031206,region,Coastal
+1801010104,region,Coastal
+1801010105,region,Coastal
+1801010201,region,Coastal
+1801010204,region,Coastal
+1801010205,region,Coastal
+1801010206,region,Coastal
+1801010508,region,Coastal
+1801010510,region,Coastal
+1801010511,region,Coastal
+1801010603,region,Coastal
+1801010604,region,Coastal
+1801010701,region,Coastal
+1801010702,region,Coastal
+1801010703,region,Coastal
+1801010704,region,Coastal
+1801010801,region,Coastal
+1801010802,region,Coastal
+1801010803,region,Coastal
+1801010804,region,Coastal
+1801010805,region,Coastal
+1801010806,region,Coastal
+1801010807,region,Coastal
+1801010808,region,Coastal
+1801010809,region,Coastal
+1801010901,region,Coastal
+1801010902,region,Coastal
+1801011003,region,Coastal
+1801011004,region,Coastal
+1801011005,region,Coastal
+1801011006,region,Coastal
+1801011007,region,Coastal
+1801011008,region,Coastal
+1801011009,region,Coastal
+1801020911,region,Coastal
+1802010401,region,Coastal
+1802010405,region,Coastal
+1802010406,region,Coastal
+1802010407,region,Coastal
+1802010408,region,Coastal
+1802011501,region,Coastal
+1802011503,region,Coastal
+1802011504,region,Coastal
+1802011505,region,Coastal
+1802011506,region,Coastal
+1802011601,region,Coastal
+1802011603,region,Coastal
+1802011604,region,Coastal
+1802011605,region,Coastal
+1802011606,region,Coastal
+1802011607,region,Coastal
+1802015103,region,Coastal
+1802015104,region,Coastal
+1802015202,region,Coastal
+1802015203,region,Coastal
+1802015205,region,Coastal
+1802015206,region,Coastal
+1802015207,region,Coastal
+1802015208,region,Coastal
+1802015402,region,Coastal
+1802015403,region,Coastal
+1802015405,region,Coastal
+1802015502,region,Coastal
+1802015503,region,Coastal
+1802015504,region,Coastal
+1802015602,region,Coastal
+1802015605,region,Coastal
+1802016201,region,Coastal
+1802016202,region,Coastal
+1802016203,region,Coastal
+1802016204,region,Coastal
+1805000101,region,Coastal
+1805000201,region,Coastal
+1805000202,region,Coastal
+1805000203,region,Coastal
+1805000204,region,Coastal
+1805000205,region,Coastal
+1805000206,region,Coastal
+1805000208,region,Coastal
+1805000503,region,Coastal
+1805000504,region,Coastal
+1710030901,region,Klamath
+1710031101,region,Klamath
+1710031103,region,Klamath
+1710031104,region,Klamath
+1801010101,region,Klamath
+1801010102,region,Klamath
+1801010103,region,Klamath
+1801010202,region,Klamath
+1801010203,region,Klamath
+1801010301,region,Klamath
+1801010302,region,Klamath
+1801010303,region,Klamath
+1801010304,region,Klamath
+1801010305,region,Klamath
+1801010401,region,Klamath
+1801010402,region,Klamath
+1801010403,region,Klamath
+1801010404,region,Klamath
+1801010405,region,Klamath
+1801010501,region,Klamath
+1801010502,region,Klamath
+1801010503,region,Klamath
+1801010504,region,Klamath
+1801010505,region,Klamath
+1801010506,region,Klamath
+1801010507,region,Klamath
+1801010509,region,Klamath
+1801010601,region,Klamath
+1801010602,region,Klamath
+1801011001,region,Klamath
+1801011002,region,Klamath
+1801020606,region,Klamath
+1801020608,region,Klamath
+1801020609,region,Klamath
+1801020610,region,Klamath
+1801020611,region,Klamath
+1801020702,region,Klamath
+1801020801,region,Klamath
+1801020802,region,Klamath
+1801020803,region,Klamath
+1801020804,region,Klamath
+1801020805,region,Klamath
+1801020806,region,Klamath
+1801020901,region,Klamath
+1801020902,region,Klamath
+1801020903,region,Klamath
+1801020904,region,Klamath
+1801020905,region,Klamath
+1801020906,region,Klamath
+1801020907,region,Klamath
+1801020908,region,Klamath
+1801020909,region,Klamath
+1801020910,region,Klamath
+1801021001,region,Klamath
+1801021002,region,Klamath
+1801021003,region,Klamath
+1801021004,region,Klamath
+1801021101,region,Klamath
+1801021102,region,Klamath
+1801021103,region,Klamath
+1801021104,region,Klamath
+1801021105,region,Klamath
+1801021106,region,Klamath
+1801021107,region,Klamath
+1801021108,region,Klamath
+1801021109,region,Klamath
+1801021110,region,Klamath
+1801021111,region,Klamath
+1801021112,region,Klamath
+1801021201,region,Klamath
+1801021202,region,Klamath
+1801021203,region,Klamath
+1801021204,region,Klamath
+1801021205,region,Klamath
+1802000312,region,Klamath
+1802000313,region,Klamath
+1802000403,region,Klamath
+1802000404,region,Klamath
+1802000405,region,Klamath
+1802000501,region,Klamath
+1802000502,region,Klamath
+1802000503,region,Klamath
+1802000504,region,Klamath
+1802011502,region,Klamath
+1802011602,region,Klamath
+1802015201,region,Klamath
+1802015204,region,Klamath
+1802015401,region,Klamath
+1802015604,region,Klamath

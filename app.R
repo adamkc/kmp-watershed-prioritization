@@ -490,8 +490,10 @@ server <- function(input, output, session) {
     step1_title <- sprintf("Step 1. Sub-zone \u00B7 %s",
                            SUBZONE_LABELS[[rv$subzone_id]] %||% "Full KMP")
     step2_title <- sprintf("Step 2. Metrics \u00B7 %s", rv$source_label)
-    step3_title <- sprintf("Step 3. Goal%s",
-                           if (nzchar(trimws(rv$goal_text %||% ""))) " \u00B7 set" else "")
+    # Do NOT read rv$goal_text reactively here: workflow_ui renders the goal
+    # textarea, so a dependency on goal_text forms a render -> input echo ->
+    # sync-observer -> render loop that freezes on rapid scenario switching.
+    step3_title <- "Step 3. Goal"
     n_active <- length(rv$active_metrics)
     step4_title <- sprintf("Step 4. Weights \u00B7 %d metric%s",
                            n_active, if (n_active == 1) "" else "s")
@@ -903,7 +905,8 @@ server <- function(input, output, session) {
   # and this observer mirrors the user's edits back into rv$goal_text so
   # the report (which reads rv$goal_text) stays current.
   observeEvent(input$scenario_goal, {
-    rv$goal_text <- input$scenario_goal %||% ""
+    new <- input$scenario_goal %||% ""
+    if (!identical(rv$goal_text, new)) rv$goal_text <- new
   }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
 

@@ -81,12 +81,17 @@ jobs:
                 "$STAGE/data/kmp_huc10_ca.geojson"
 
           # Absolute URL of the boundaries/ folder, read at runtime by
-          # remote_boundary_url(). GitHub Pages project-site convention:
-          # https://<owner>.github.io/<repo>/. Override with the
-          # ASSET_BASE_URL repo variable if a custom domain is in use.
+          # remote_boundary_url(). It MUST be the same origin the app is
+          # served from, or the on-demand fetch is cross-origin and
+          # CORS-blocked -- exactly what happens with a custom domain (the
+          # github.io URL 301s to it with no CORS header). So take the
+          # canonical URL from the Pages API (honours the custom domain),
+          # then the ASSET_BASE_URL override, then the github.io fallback.
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY#*/}"
-          BASE="${ASSET_BASE_URL:-https://${OWNER}.github.io/${REPO}}"
+          PAGES_URL="$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url 2>/dev/null || true)"
+          PAGES_URL="${PAGES_URL/http:/https:}"   # Pages API reports http
+          BASE="${ASSET_BASE_URL:-${PAGES_URL:-https://${OWNER}.github.io/${REPO}}}"
           BASE="${BASE%/}/boundaries/"
           echo "$BASE" > "$STAGE/data/asset_base.txt"
           echo "asset_base.txt -> $BASE"
@@ -96,6 +101,7 @@ jobs:
           ls -la "$STAGE"
         env:
           ASSET_BASE_URL: ${{ vars.ASSET_BASE_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build shinylive bundle
         # Use shinylive's default web assets (0.10.8 / webR 0.5.9 at

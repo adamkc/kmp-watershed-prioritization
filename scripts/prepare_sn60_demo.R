@@ -6,7 +6,8 @@
 #     Known meadow area (acres)  - SNMMPC v2 mapped meadows, summed per HUC10
 #     Lost meadow area (acres)   - SN60 model predicted lost meadows
 #     Unburned 30yr (%)          - complement of the 30-yr MTBS burn union
-#     Unburned 5yr (%)           - complement of the  5-yr MTBS burn union
+#     Recent burned 5yr (%)      - % of HUC in the 5-yr MTBS burn union
+#                                  (high = recently burned; = 100 - unburned)
 #
 # The CSV is ready to drop into the app via Step 2 -> "upload a CSV".
 #
@@ -117,8 +118,10 @@ out$`Known meadow area (acres)` <- round(
 out$`Known meadow area (acres)`[is.na(out$`Known meadow area (acres)`)] <- 0
 out$`Lost meadow area (acres)`  <- round(
   lost$lost_ac[match(out$huc10, lost$huc10)], 1)
-out$`Unburned 30yr (%)` <- round(pmax(100 - burn30[match(out$huc10, names(burn30))], 0), 1)
-out$`Unburned 5yr (%)`  <- round(pmax(100 - burn5[ match(out$huc10, names(burn5))],  0), 1)
+out$`Unburned 30yr (%)`     <- round(pmax(100 - burn30[match(out$huc10, names(burn30))], 0), 1)
+# Recent burn is the direct burned fraction (high = recently burned),
+# i.e. the complement of "unburned": burned% = 100 - unburned%.
+out$`Recent burned 5yr (%)` <- round(pmin(burn5[match(out$huc10, names(burn5))], 100), 1)
 
 names(out)[1:2] <- c("huccode", "name")
 out <- out[order(out$huccode), ]

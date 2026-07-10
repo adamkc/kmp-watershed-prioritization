@@ -549,8 +549,11 @@ server <- function(input, output, session) {
           div(class = "text-muted",
               style = "font-size: 0.72rem; line-height: 1.35; margin-top: -8px;",
               tags$strong("Required:"), " a column named ", tags$code("huccode"),
-              " with 4-, 6-, 8-, 10-, or 12-digit HUC IDs matching the KMP ",
-              "boundaries. ", tags$strong("Optional:"), " a ", tags$code("name"),
+              " with 4-, 6-, 8-, 10-, or 12-digit HUC IDs. ",
+              tags$strong("HUC10 codes work anywhere in California"),
+              " (the map loads statewide HUC10 boundaries on demand); the ",
+              "other levels (4/6/8/12) cover the KMP zone only. ",
+              tags$strong("Optional:"), " a ", tags$code("name"),
               " column for display labels. All remaining numeric columns are ",
               "treated as metrics and given sliders. HUC codes must be plain ",
               "digit strings \u2014 not scientific notation."

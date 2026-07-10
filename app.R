@@ -413,7 +413,8 @@ server <- function(input, output, session) {
     source_label   = "not yet chosen",
     active_metrics = character(0),
     init_weights   = numeric(0),
-    uploaded       = NULL            # list(data, huc_level) from upload path
+    uploaded       = NULL,           # list(data, huc_level) from upload path
+    goal_text      = ""              # Step-3 scenario goal; flows to the report
   )
 
 
@@ -489,12 +490,15 @@ server <- function(input, output, session) {
     step1_title <- sprintf("Step 1. Sub-zone \u00B7 %s",
                            SUBZONE_LABELS[[rv$subzone_id]] %||% "Full KMP")
     step2_title <- sprintf("Step 2. Metrics \u00B7 %s", rv$source_label)
+    step3_title <- sprintf("Step 3. Goal%s",
+                           if (nzchar(trimws(rv$goal_text %||% ""))) " \u00B7 set" else "")
     n_active <- length(rv$active_metrics)
-    step3_title <- sprintf("Step 3. Weights \u00B7 %d metric%s",
+    step4_title <- sprintf("Step 4. Weights \u00B7 %d metric%s",
                            n_active, if (n_active == 1) "" else "s")
 
-    # Which panels are open? Default: step 1. After selection: step 3.
-    open_panels <- if (is.null(rv$source_type)) "step1" else "step3"
+    # Which panels are open? Default: step 1. After a source is chosen,
+    # open the Goal and Weights steps together.
+    open_panels <- if (is.null(rv$source_type)) "step1" else c("step3", "step4")
 
     tagList(
       accordion(
@@ -560,10 +564,32 @@ server <- function(input, output, session) {
           )
         ),
 
-        # --- Step 3: weights ---
+        # --- Step 3: scenario goal ---
         accordion_panel(
           value = "step3",
           title = step3_title,
+          p(class = "text-muted small", style = "line-height: 1.3;",
+            "It's important to record the goal of a prioritization scenario. ",
+            "Note what you're hoping to prioritize or surface — what a ",
+            "top-ranked watershed should represent, and why this set of ",
+            "metrics and weights. ",
+            tags$em("This text is included in the generated report.")),
+          textAreaInput("scenario_goal", label = NULL,
+                        value = isolate(rv$goal_text),
+                        width = "100%", height = "130px",
+                        placeholder = paste(
+                          "e.g. Prioritize meadow-rich watersheds with recent",
+                          "fire on federal land, to target post-fire meadow",
+                          "restoration where the most acreage can be recovered.")),
+          if (identical(rv$source_type, "scenario"))
+            p(class = "text-muted", style = "font-size: 0.7rem; margin-top: -4px;",
+              "Prefilled from the scenario description — edit freely.")
+        ),
+
+        # --- Step 4: weights ---
+        accordion_panel(
+          value = "step4",
+          title = step4_title,
 
           if (length(rv$active_metrics) == 0) {
             p(class = "text-muted small",
@@ -664,8 +690,11 @@ server <- function(input, output, session) {
     rv$source_label   <- scenario$name
     rv$active_metrics <- valid
     rv$init_weights   <- scenario$weights[valid]
+    # Prefill the Step-3 goal from the scenario description (editable).
+    rv$goal_text      <- trimws(scenario$description %||% "")
+    updateTextAreaInput(session, "scenario_goal", value = rv$goal_text)
     accordion_panel_close(id = "steps", values = c("step1", "step2"))
-    accordion_panel_open(id  = "steps", values = "step3")
+    accordion_panel_open(id  = "steps", values = c("step3", "step4"))
   }
 
   # One observer per scenario button (registered at startup; closures
@@ -814,9 +843,12 @@ server <- function(input, output, session) {
     rv$source_label   <- sprintf("Custom list (%d metrics)", length(chosen))
     rv$active_metrics <- chosen
     rv$init_weights   <- setNames(rep(1, length(chosen)), chosen)
+    # No prefill for a custom list -- start the goal blank.
+    rv$goal_text      <- ""
+    updateTextAreaInput(session, "scenario_goal", value = "")
     removeModal()
     accordion_panel_close(id = "steps", values = c("step1", "step2"))
-    accordion_panel_open(id  = "steps", values = "step3")
+    accordion_panel_open(id  = "steps", values = c("step3", "step4"))
   })
 
   # --- Upload CSV path ---
@@ -847,8 +879,10 @@ server <- function(input, output, session) {
     rv$source_label   <- sprintf("Uploaded (%d metrics)", length(scoring))
     rv$active_metrics <- scoring
     rv$init_weights   <- setNames(rep(1, length(scoring)), scoring)
+    rv$goal_text      <- ""
+    updateTextAreaInput(session, "scenario_goal", value = "")
     accordion_panel_close(id = "steps", values = c("step1", "step2"))
-    accordion_panel_open(id  = "steps", values = "step3")
+    accordion_panel_open(id  = "steps", values = c("step3", "step4"))
   })
 
   # --- Sub-zone selector ---
@@ -861,6 +895,16 @@ server <- function(input, output, session) {
       accordion_panel_open( id = "steps", values = "step2")
     }
   }, ignoreInit = TRUE)
+
+
+  # --- Scenario goal: keep rv in sync with the textarea ---
+  # The workflow accordion re-renders on several rv changes; the textarea
+  # value is set from isolate(rv$goal_text) so it doesn't reset mid-edit,
+  # and this observer mirrors the user's edits back into rv$goal_text so
+  # the report (which reads rv$goal_text) stays current.
+  observeEvent(input$scenario_goal, {
+    rv$goal_text <- input$scenario_goal %||% ""
+  }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
 
   # ---- Weight bulk-set ------------------------------------------------------
@@ -1207,6 +1251,7 @@ server <- function(input, output, session) {
       rv_state       = rv_state,
       subzone_name   = subzone_name,
       scenario       = current_scenario(),
+      goal           = rv$goal_text,
       ranking_df     = rk,
       weights        = weights(),
       metrics_meta   = METRICS_META,

@@ -337,6 +337,7 @@ fill_report_chart_placeholders <- function(md,
 build_report_md <- function(rv_state,
                             subzone_name,
                             scenario       = NULL,
+                            goal           = NULL,
                             ranking_df,
                             weights,
                             metrics_meta,
@@ -381,11 +382,15 @@ build_report_md <- function(rv_state,
     ""
   )
 
-  if (!is.null(scenario)) {
-    add("### Scenario description",
-        "",
-        trimws(scenario$description),
-        "")
+  # --- Prioritization goal ---
+  # User-entered in Step 3 (prefilled from the scenario description when a
+  # prebuilt scenario is chosen, then editable). Supersedes the static
+  # scenario description in the report.
+  goal_txt <- trimws(goal %||% "")
+  if (nzchar(goal_txt)) {
+    add("## Prioritization goal", "", goal_txt, "")
+  } else if (!is.null(scenario) && nzchar(trimws(scenario$description %||% ""))) {
+    add("## Prioritization goal", "", trimws(scenario$description), "")
   }
 
 

@@ -546,16 +546,22 @@ server <- function(input, output, session) {
             "Choose a prebuilt scenario, build a custom metric list, or ",
             "upload your own CSV."),
 
-          div(class = "d-grid gap-2 mb-3",
+          div(class = "d-grid gap-2 mb-2",
             # One button per scenario from the YAML catalog.
             lapply(SCENARIOS, function(s) {
               actionButton(paste0("pick_scenario_", s$id),
                            label = s$name,
                            class = "btn-outline-primary scenario-btn",
                            width = "100%")
-            }),
-            actionButton("pick_custom", "Custom metric list...",
-                         class = "btn-outline-primary scenario-btn",
+            })
+          ),
+
+          # Set the full-catalog entry point apart from the prebuilt
+          # scenarios, and label it distinctly from the CSV-upload path.
+          div(class = "text-muted small text-center mb-1", "— or build your own —"),
+          div(class = "d-grid gap-2 mb-3",
+            actionButton("pick_custom", "Full list of metrics",
+                         class = "btn-outline-secondary scenario-btn",
                          width = "100%")
           ),
 
@@ -1354,11 +1360,12 @@ server <- function(input, output, session) {
     rank_ui <- if (!is.null(report_chart_ranking()))
       plotOutput("report_chart_ranking_out", height = "420px") else NULL
 
-    # Facet map height scales with metric count (~160 px per row, 3 cols).
+    # Facet grid is 2-3 wide (matches make_faceted_metric_map); height
+    # scales with the row count. plotOutput fills the report-body width.
     n_active <- length(rv$active_metrics)
-    n_facet_cols <- if (n_active <= 4) 2 else if (n_active <= 9) 3 else 4
+    n_facet_cols <- if (n_active <= 3) n_active else if (n_active == 4) 2 else 3
     n_facet_rows <- ceiling(n_active / n_facet_cols)
-    facets_h <- max(400, n_facet_rows * 220)
+    facets_h <- max(360, n_facet_rows * 260)
     facets_ui <- if (!is.null(report_chart_facets()))
       plotOutput("report_chart_facets_out",
                  height = paste0(facets_h, "px")) else NULL

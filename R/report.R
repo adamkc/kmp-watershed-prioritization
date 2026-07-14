@@ -177,13 +177,16 @@ make_faceted_metric_map <- function(joined_sf,
   # Facet label: strip "Simulated: " prefix and wrap long names.
   label_fun <- function(x) {
     cleaned <- gsub("^Simulated:\\s*", "", x)
-    vapply(cleaned, function(s) paste(strwrap(s, width = 28), collapse = "\n"),
+    vapply(cleaned, function(s) paste(strwrap(s, width = 22), collapse = "\n"),
            character(1))
   }
 
-  n_cols <- if (length(active_cols) <= 4)      2
-            else if (length(active_cols) <= 9) 3
-            else                                4
+  # Keep the grid 2-3 panels wide so it fills the page width rather than
+  # stacking into a tall, narrow column (which squeezes the facet labels).
+  n_metrics <- length(active_cols)
+  n_cols <- if (n_metrics <= 3) n_metrics
+            else if (n_metrics == 4) 2
+            else 3
 
   ggplot2::ggplot(sf_long) +
     ggplot2::geom_sf(ggplot2::aes(fill = bin),
@@ -301,23 +304,25 @@ fill_report_chart_placeholders <- function(md,
                                            mode             = c("html", "text")) {
   mode <- match.arg(mode)
 
-  # Facet height scales with the number of panels. Estimate by reading
-  # off the ggplot layout if possible; fall back to a default.
+  # Facet grid is 2-3 panels wide (matches make_faceted_metric_map); the
+  # export is full page width and its height scales with the row count so
+  # panels stay legible and facet labels aren't squeezed.
   facets_h <- 8
   if (!is.null(facets_plot)) {
     n_panels <- tryCatch(
       length(unique(facets_plot$data$metric)), error = function(e) NA
     )
     if (!is.na(n_panels) && n_panels > 0) {
-      # assume 3 cols; ~3 inches per row, minimum 6
-      facets_h <- max(6, ceiling(n_panels / 3) * 3)
+      n_cols <- if (n_panels <= 3) n_panels else if (n_panels == 4) 2 else 3
+      n_rows <- ceiling(n_panels / n_cols)
+      facets_h <- max(4.5, n_rows * 3.2)
     }
   }
 
   if (mode == "html") {
     mp_repl <- plot_to_data_uri(map_plot,         width = 8.0, height = 6.5)
     rk_repl <- plot_to_data_uri(ranking_plot,     width = 7.5, height = 4.5)
-    ft_repl <- plot_to_data_uri(facets_plot,      width = 8.5, height = facets_h)
+    ft_repl <- plot_to_data_uri(facets_plot,      width = 10,  height = facets_h)
     sn_repl <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7.0)
   } else {
     mp_repl <- "\n\n_Map: composite score by HUC -- see the HTML report or inline view._\n\n"

@@ -43,6 +43,31 @@ source("R/report.R")
 
 options(shiny.maxRequestSize = 30 * 1024^2)
 
+# Max watersheds profiled in Step 5 (and the report's individual section).
+MAX_WS <- 5L
+
+# Interleave a report markdown string with rendered UI (plotOutputs).
+# token_ui maps a placeholder token -> a UI element (or NULL to drop it).
+# Walks the md, and at each token emits markdown(before) then the element.
+# Order-agnostic: whichever token appears next in the text is handled next,
+# so it copes with a dynamic number of watershed charts between sections.
+render_interleaved <- function(md, token_ui) {
+  tokens <- names(token_ui)
+  out <- list(); remaining <- md
+  repeat {
+    pos <- vapply(tokens, function(t) {
+      m <- regexpr(t, remaining, fixed = TRUE)
+      if (m[1] > 0) m[1] else NA_integer_
+    }, integer(1))
+    if (all(is.na(pos))) { out <- c(out, list(shiny::markdown(remaining))); break }
+    i <- which.min(pos); tok <- tokens[i]; at <- pos[i]
+    out <- c(out, list(shiny::markdown(substr(remaining, 1, at - 1))))
+    if (!is.null(token_ui[[tok]])) out <- c(out, list(token_ui[[tok]]))
+    remaining <- substr(remaining, at + nchar(tok), nchar(remaining))
+  }
+  do.call(tagList, out)
+}
+
 # Chrome + shinylive download workaround (Chromium issue 468227). Under
 # shinylive the file is served by the service worker; Chrome's handling of
 # the anchor's `download` attribute conflicts with that and rejects the
@@ -735,6 +760,44 @@ server <- function(input, output, session) {
               })
             )
           }
+        ),
+
+        # --- Step 5: individual watershed detail ---
+        accordion_panel(
+          value = "step5",
+          title = "Step 5. Watershed detail",
+          if (length(rv$active_metrics) == 0) {
+            p(class = "text-muted small",
+              "Pick metrics in Step 2 first. The report then profiles ",
+              "individual watersheds here.")
+          } else {
+            ad    <- active_data()
+            lname <- label_col_name()
+            ws_lab <- if (!is.na(lname)) ad[[lname]] else ad$huccode
+            ws_choices <- setNames(
+              ad$huccode,
+              ifelse(is.na(ws_lab) | !nzchar(ws_lab),
+                     ad$huccode, sprintf("%s (%s)", ws_lab, ad$huccode)))
+            tagList(
+              p(class = "text-muted small", style = "line-height: 1.3;",
+                "The report profiles these watersheds across the active ",
+                "metrics -- each one's raw value, Jenks bin, and rank, plus ",
+                "a chart of where it falls in every metric's distribution."),
+              radioButtons("ws_mode", label = NULL,
+                choices = c("Top 3 automatically" = "auto",
+                            "Choose manually"      = "manual"),
+                selected = isolate(input$ws_mode) %||% "auto"),
+              conditionalPanel(
+                condition = "input.ws_mode == 'manual'",
+                selectizeInput("ws_manual", label = NULL, multiple = TRUE,
+                  choices  = ws_choices,
+                  selected = isolate(input$ws_manual),
+                  options  = list(maxItems = MAX_WS,
+                                  placeholder = "Search watersheds...")),
+                p(class = "text-muted", style = "font-size: 0.7rem;",
+                  sprintf("Up to %d watersheds.", MAX_WS)))
+            )
+          }
         )
       )
     )
@@ -1019,6 +1082,59 @@ server <- function(input, output, session) {
       score   = round(comp, 3),
       stringsAsFactors = FALSE
     )
+  })
+
+
+  # ---- Step 5: individual watershed selection ------------------------------
+
+  # Which watersheds get a profile in the report: the top 3 by rank
+  # (stable tie-break so the pick doesn't flicker as weights change), or a
+  # manual selection. Only scored watersheds are eligible.
+  selected_watersheds <- reactive({
+    rk <- ranking(); req(rk)
+    valid <- rk[!is.na(rk$score), , drop = FALSE]
+    if (nrow(valid) == 0) return(character(0))
+    if (identical(input$ws_mode %||% "auto", "manual")) {
+      return(utils::head(intersect(input$ws_manual %||% character(0),
+                                   valid$huccode), MAX_WS))
+    }
+    valid$huccode[utils::head(order(valid$rank, valid$huccode), 3)]
+  })
+
+  # Per-watershed data for the report (name, overall rank, metric table).
+  watershed_analysis <- reactive({
+    if (length(rv$active_metrics) == 0) return(list())
+    sel <- selected_watersheds(); if (length(sel) == 0) return(list())
+    d <- active_data(); dbs <- directed_bin_scores(); rk <- ranking()
+    lname <- label_col_name()
+    lapply(sel, function(h) {
+      idx <- match(h, d$huccode)
+      list(
+        name         = if (!is.na(lname)) d[[lname]][idx] else NA_character_,
+        huccode      = h,
+        overall_rank = rk$rank[match(h, rk$huccode)],
+        table        = watershed_metric_table(d, dbs, rv$active_metrics,
+                                              METRICS_META, h)
+      )
+    })
+  })
+
+  # Raincloud profile chart for the i-th selected watershed (or NULL).
+  ws_profile_plot <- function(i) {
+    if (length(rv$active_metrics) == 0) return(NULL)
+    sel <- selected_watersheds()
+    if (length(sel) < i) return(NULL)
+    make_watershed_profile(active_data(), directed_bin_scores(),
+                           rv$active_metrics, METRICS_META, sel[i])
+  }
+
+  # Fixed pool of output slots; each renders its watershed's profile if
+  # that slot is currently in use.
+  for (.i in seq_len(MAX_WS)) local({
+    ii <- .i
+    output[[sprintf("report_chart_ws_%d_out", ii)]] <- renderPlot({
+      p <- ws_profile_plot(ii); req(p); p
+    })
   })
 
 
@@ -1320,6 +1436,8 @@ server <- function(input, output, session) {
       metrics_meta   = METRICS_META,
       classification = active_classification(),
       join_info      = join_info,
+      watershed_analysis = if (length(rv$active_metrics) > 0)
+                             watershed_analysis() else list(),
       sens_results   = sens_rv$results,
       sens_summary   = sens_rv$summary
     )
@@ -1379,52 +1497,34 @@ server <- function(input, output, session) {
     p <- report_chart_sensitivity(); req(p); p
   })
 
-  # Inline view: split the markdown at each chart placeholder (in order:
-  # MAP, RANKING, FACETS, SENSITIVITY) and interleave rendered markdown
-  # chunks with plotOutput. Each chunk is self-contained because
-  # placeholders sit between H2 sections.
+  # Inline view: interleave the report markdown with the rendered charts,
+  # replacing each placeholder token with its plotOutput. The watershed
+  # section contributes a dynamic number of tokens, so the mapping is built
+  # per render and stitched by render_interleaved (order-agnostic).
   output$report_rendered <- renderUI({
     md <- report_md()
 
-    split_at <- function(s, token) {
-      parts <- strsplit(s, token, fixed = TRUE)[[1]]
-      list(before = parts[1], after = if (length(parts) >= 2) parts[2] else "")
-    }
-
-    a <- split_at(md,       PLACEHOLDER_CHART_MAP)
-    b <- split_at(a$after,  PLACEHOLDER_CHART_RANKING)
-    c <- split_at(b$after,  PLACEHOLDER_CHART_FACETS)
-    d <- split_at(c$after,  PLACEHOLDER_CHART_SENSITIVITY)
-
-    map_ui <- if (!is.null(report_chart_map()))
-      plotOutput("report_chart_map_out", height = "540px") else NULL
-    rank_ui <- if (!is.null(report_chart_ranking()))
-      plotOutput("report_chart_ranking_out", height = "420px") else NULL
-
-    # Facet grid is 2-3 wide (matches make_faceted_metric_map); height
-    # scales with the row count. plotOutput fills the report-body width.
     n_active <- length(rv$active_metrics)
     n_facet_cols <- if (n_active <= 3) n_active else if (n_active == 4) 2 else 3
-    n_facet_rows <- ceiling(n_active / n_facet_cols)
-    facets_h <- max(360, n_facet_rows * 260)
-    facets_ui <- if (!is.null(report_chart_facets()))
-      plotOutput("report_chart_facets_out",
-                 height = paste0(facets_h, "px")) else NULL
+    facets_h <- max(360, ceiling(n_active / n_facet_cols) * 260)
+    ws_h     <- max(360, n_active * 118)
 
-    sens_ui <- if (!is.null(report_chart_sensitivity()))
-      plotOutput("report_chart_sensitivity_out", height = "560px") else NULL
+    token_ui <- list()
+    token_ui[[PLACEHOLDER_CHART_MAP]] <- if (!is.null(report_chart_map()))
+      plotOutput("report_chart_map_out", height = "540px")
+    token_ui[[PLACEHOLDER_CHART_RANKING]] <- if (!is.null(report_chart_ranking()))
+      plotOutput("report_chart_ranking_out", height = "420px")
+    token_ui[[PLACEHOLDER_CHART_FACETS]] <- if (!is.null(report_chart_facets()))
+      plotOutput("report_chart_facets_out", height = paste0(facets_h, "px"))
+    for (i in seq_len(length(selected_watersheds()))) {
+      token_ui[[placeholder_chart_ws(i)]] <-
+        plotOutput(sprintf("report_chart_ws_%d_out", i),
+                   height = paste0(ws_h, "px"))
+    }
+    token_ui[[PLACEHOLDER_CHART_SENSITIVITY]] <- if (!is.null(report_chart_sensitivity()))
+      plotOutput("report_chart_sensitivity_out", height = "560px")
 
-    tagList(
-      shiny::markdown(a$before),
-      map_ui,
-      shiny::markdown(b$before),
-      rank_ui,
-      shiny::markdown(c$before),
-      facets_ui,
-      shiny::markdown(d$before),
-      sens_ui,
-      shiny::markdown(d$after)
-    )
+    render_interleaved(md, token_ui)
   })
 
   output$download_report_md <- downloadHandler(
@@ -1451,12 +1551,15 @@ server <- function(input, output, session) {
       # falls back to a text-only report as a last resort.
       safe <- function(expr) tryCatch(expr, error = function(e) NULL)
       html <- tryCatch({
+        ws_plots <- lapply(seq_len(length(selected_watersheds())),
+                           function(i) safe(ws_profile_plot(i)))
         md <- fill_report_chart_placeholders(
           report_md(),
           map_plot         = safe(report_chart_map()),
           ranking_plot     = safe(report_chart_ranking()),
           facets_plot      = safe(report_chart_facets()),
           sensitivity_plot = safe(report_chart_sensitivity()),
+          watershed_plots  = ws_plots,
           mode             = "html"
         )
         render_standalone_html(as.character(shiny::markdown(md)))

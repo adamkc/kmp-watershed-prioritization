@@ -256,6 +256,122 @@ make_ranking_chart <- function(ranking_df, n = 15) {
 }
 
 
+#' Placeholder token for the i-th individual-watershed profile chart.
+placeholder_chart_ws <- function(i) sprintf("__CHART_WS_%d__", i)
+
+#' Format an integer as an English ordinal (1 -> "1st", 22 -> "22nd").
+.ordinal <- function(k) {
+  if (is.na(k)) return("-")
+  suffix <- if (k %% 100 %in% 11:13) "th"
+            else switch(as.character(k %% 10),
+                        "1" = "st", "2" = "nd", "3" = "rd", "th")
+  paste0(k, suffix)
+}
+
+#' Per-metric standing of one watershed: its raw value, direction-adjusted
+#' Jenks bin, and rank among all in-scope watersheds (rank 1 = highest
+#' priority on that metric, given the metric's direction).
+#'
+#' @return data.frame with metric, value, bin, rank, n (one row per metric).
+watershed_metric_table <- function(data, bin_scores, active_metrics,
+                                   metrics_meta, target_huccode) {
+  active <- intersect(active_metrics, names(bin_scores))
+  ti <- match(target_huccode, data$huccode)
+  n  <- nrow(data)
+  if (is.na(ti) || length(active) == 0) return(NULL)
+  do.call(rbind, lapply(active, function(m) {
+    v   <- data[[m]]
+    dir <- metric_direction(metrics_meta, m)
+    r   <- if (identical(dir, "negative"))
+             rank(v, ties.method = "min", na.last = "keep")
+           else rank(-v, ties.method = "min", na.last = "keep")
+    data.frame(metric = m, value = v[ti], bin = bin_scores[[m]][ti],
+               rank = r[ti], n = n, stringsAsFactors = FALSE)
+  }))
+}
+
+#' Raincloud profile for a single watershed: for each active metric, the
+#' distribution of all in-scope watersheds (density cloud truncated at the
+#' data limits, plus a jittered strip of the individual watersheds) with
+#' the target watershed marked in red and labelled with its rank and Jenks
+#' bin. Combines the "density" and "strip" views.
+#'
+#' @return a ggplot, or NULL if there is nothing to draw.
+make_watershed_profile <- function(data, bin_scores, active_metrics,
+                                   metrics_meta, target_huccode) {
+  active <- intersect(active_metrics, names(bin_scores))
+  if (length(active) == 0) return(NULL)
+  ti <- match(target_huccode, data$huccode)
+  if (is.na(ti)) return(NULL)
+  n <- nrow(data)
+
+  rows <- do.call(rbind, lapply(active, function(m) {
+    v   <- data[[m]]
+    dir <- metric_direction(metrics_meta, m)
+    r   <- if (identical(dir, "negative"))
+             rank(v, ties.method = "min", na.last = "keep")
+           else rank(-v, ties.method = "min", na.last = "keep")
+    data.frame(metric = m, value = v, rank = r, bin = bin_scores[[m]],
+               is_target = seq_len(n) == ti, stringsAsFactors = FALSE)
+  }))
+  clean <- function(x) gsub("^Simulated:\\s*", "", x)
+  lvl <- active
+  rows$metric <- factor(rows$metric, levels = lvl)
+
+  tgt <- rows[rows$is_target, , drop = FALSE]
+  tgt$lab <- sprintf("%s of %d  |  bin %s",
+                     vapply(tgt$rank, .ordinal, character(1)), n,
+                     ifelse(is.na(tgt$bin), "-", as.character(tgt$bin)))
+
+  # Density cloud per metric, evaluated only within the data range so the
+  # curve is truncated at the metric's real limits (no spill past 0/100).
+  dens <- do.call(rbind, lapply(active, function(m) {
+    v <- rows$value[rows$metric == m]; v <- v[!is.na(v)]
+    if (length(unique(v)) < 3) return(NULL)
+    de <- stats::density(v, from = min(v), to = max(v))
+    data.frame(metric = m, x = de$x, y = de$y / max(de$y))
+  }))
+  if (!is.null(dens)) dens$metric <- factor(dens$metric, levels = lvl)
+
+  # Jittered strip of individual watersheds, in a band below the cloud.
+  pts <- rows
+  jit <- (seq_len(nrow(pts)) * 2654435761) %% 1000 / 1000   # stable pseudo-jitter
+  pts$y <- -0.12 - jit * 0.30
+  tp <- pts[pts$is_target, , drop = FALSE]; tp$y <- -0.27
+
+  wrap <- function(x) vapply(clean(x), function(s)
+    paste(strwrap(s, 24), collapse = "\n"), character(1))
+
+  # Base data carries the metric factor so downstream sizing can count
+  # panels; every layer sets its own data explicitly.
+  p <- ggplot2::ggplot(rows)
+  if (!is.null(dens)) p <- p +
+    ggplot2::geom_area(data = dens, ggplot2::aes(x, y),
+                       fill = "#e9ebf0", color = "#aab0b6", linewidth = 0.4)
+  p +
+    ggplot2::geom_point(data = subset(pts, !is_target),
+                        ggplot2::aes(value, y), color = "#9aa0a6",
+                        alpha = 0.45, size = 1) +
+    ggplot2::geom_vline(data = tgt, ggplot2::aes(xintercept = value),
+                        color = "#c0392b", linewidth = 0.7) +
+    ggplot2::geom_point(data = tp, ggplot2::aes(value, y),
+                        color = "#c0392b", size = 2.8) +
+    ggplot2::geom_text(data = tgt, ggplot2::aes(label = lab),
+                       x = Inf, y = 1.06, hjust = 1, vjust = 1, size = 2.8,
+                       color = "#c0392b", fontface = "bold") +
+    ggplot2::facet_wrap(~ metric, ncol = 1, scales = "free_x",
+                        labeller = ggplot2::as_labeller(wrap)) +
+    ggplot2::scale_y_continuous(limits = c(-0.45, 1.12)) +
+    ggplot2::labs(x = NULL, y = NULL) +
+    ggplot2::theme_minimal(base_size = 10) +
+    ggplot2::theme(
+      strip.text = ggplot2::element_text(face = "bold", size = 8.5, hjust = 0),
+      panel.grid = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_blank(),
+      panel.spacing = ggplot2::unit(9, "pt"))
+}
+
+
 #' Render a ggplot to a base64-encoded PNG data URI suitable for
 #' embedding in an HTML document as <img src="...">.
 #'
@@ -301,8 +417,24 @@ fill_report_chart_placeholders <- function(md,
                                            ranking_plot     = NULL,
                                            facets_plot      = NULL,
                                            sensitivity_plot = NULL,
+                                           watershed_plots  = list(),
                                            mode             = c("html", "text")) {
   mode <- match.arg(mode)
+
+  # Individual-watershed profile charts (one per selected watershed).
+  ws_h <- 7
+  if (length(watershed_plots) > 0) {
+    n_panels <- tryCatch(
+      length(unique(watershed_plots[[1]]$data$metric)), error = function(e) NA)
+    if (!is.na(n_panels) && n_panels > 0) ws_h <- max(4, n_panels * 1.15)
+  }
+  for (i in seq_along(watershed_plots)) {
+    repl <- if (mode == "html")
+      plot_to_data_uri(watershed_plots[[i]], width = 7.5, height = ws_h)
+    else
+      "\n\n_Chart: watershed distribution profile -- see the HTML report or inline view._\n\n"
+    md <- gsub(placeholder_chart_ws(i), repl, md, fixed = TRUE)
+  }
 
   # Facet grid is 2-3 panels wide (matches make_faceted_metric_map); the
   # export is full page width and its height scales with the row count so
@@ -361,6 +493,7 @@ build_report_md <- function(rv_state,
                             metrics_meta,
                             classification,
                             join_info,
+                            watershed_analysis = NULL,
                             sens_results = NULL,
                             sens_summary = NULL,
                             sens_params  = NULL) {
@@ -479,6 +612,45 @@ build_report_md <- function(rv_state,
         "not others -- those are the ones whose ranking shifts most ",
         "as weights change._", "",
         PLACEHOLDER_CHART_FACETS, "")
+  }
+
+
+  # --- Individual watershed analysis ----------------------------------------
+  # One profile per selected watershed (top 3 by default, or a manual pick):
+  # a small table of its raw value / bin / rank on each metric, plus a
+  # raincloud chart showing where it sits in each metric's distribution.
+  if (length(watershed_analysis) > 0) {
+    add("## Individual watershed analysis", "",
+        "_A closer look at selected watersheds. For each one, the table ",
+        "gives its raw value, direction-adjusted Jenks bin (1-5), and rank ",
+        "on every active metric, and the chart shows where it falls in each ",
+        "metric's distribution (grey = all watersheds, red = this one)._", "")
+    for (i in seq_along(watershed_analysis)) {
+      w  <- watershed_analysis[[i]]
+      nm <- if (is.null(w$name) || is.na(w$name) || !nzchar(w$name))
+              w$huccode else w$name
+      rk <- if (is.null(w$overall_rank) || is.na(w$overall_rank)) "" else
+              sprintf(" — overall rank %s", .ordinal(w$overall_rank))
+      add(sprintf("### %s%s", nm, rk), "",
+          sprintf("HUC %s", w$huccode), "")
+      tb <- w$table
+      if (!is.null(tb) && nrow(tb) > 0) {
+        add("| Metric | Value | Bin (1-5) | Rank |")
+        add("|:---|---:|:---:|---:|")
+        for (j in seq_len(nrow(tb))) {
+          val <- tb$value[j]
+          val_str <- if (is.na(val)) "-" else formatC(val, format = "g", digits = 4)
+          bin_str <- if (is.na(tb$bin[j])) "-" else as.character(tb$bin[j])
+          rank_str <- if (is.na(tb$rank[j])) "-" else
+            sprintf("%s of %d", .ordinal(tb$rank[j]), tb$n[j])
+          add(sprintf("| %s | %s | %s | %s |",
+                      gsub("^Simulated:\\s*", "", tb$metric[j]),
+                      val_str, bin_str, rank_str))
+        }
+        add("")
+      }
+      add(placeholder_chart_ws(i), "")
+    }
   }
 
 

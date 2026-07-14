@@ -87,6 +87,41 @@ help_icon <- function(text, placement = "top") {
   )
 }
 
+# KMP logo. Prefer the real brand asset if it has been dropped into
+# www/kmp_logo.png (embedded as base64 so it works offline under
+# shinylive); otherwise fall back to a hand-built SVG recreation so the
+# header and Acknowledgements always show a mark. Swap is automatic:
+# add the PNG and the next deploy uses it.
+KMP_LOGO_URI <- local({
+  f <- "www/kmp_logo.png"
+  if (file.exists(f) && file.info(f)$size > 0)
+    paste0("data:image/png;base64,", base64enc::base64encode(f))
+  else NULL
+})
+
+kmp_logo <- function(size = 40) {
+  if (!is.null(KMP_LOGO_URI)) {
+    return(tags$img(src = KMP_LOGO_URI, width = size, height = size,
+                    alt = "Klamath Meadows Partnership logo",
+                    style = "vertical-align: middle;"))
+  }
+  htmltools::HTML(sprintf(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="%1$d" height="%1$d" role="img" aria-label="Klamath Meadows Partnership logo" style="vertical-align: middle;">
+      <defs><clipPath id="kmpclip%1$d"><circle cx="100" cy="100" r="80"/></clipPath></defs>
+      <g clip-path="url(#kmpclip%1$d)">
+        <rect x="0" y="0" width="200" height="200" fill="#3c78a2"/>
+        <path d="M0,97 L200,97 L200,112 C176,107 158,119 134,113 C114,108 100,120 78,114 C58,109 40,117 20,112 C12,110 5,112 0,111 Z" fill="#5fa048"/>
+        <polygon points="92,33 42,97 150,97" fill="#2d5a27"/>
+        <polygon points="49,57 12,97 90,97" fill="#376e2f"/>
+        <polygon points="71,48 55,97 89,97" fill="#1c3c17"/>
+        <polygon points="138,50 98,97 184,97" fill="#316530"/>
+        <polygon points="120,60 104,97 140,97" fill="#1d3e19"/>
+        <polygon points="163,69 139,97 192,97" fill="#22471d"/>
+      </g>
+      <circle cx="100" cy="100" r="88" fill="none" stroke="#8c3a2d" stroke-width="5"/>
+    </svg>', as.integer(size)))
+}
+
 # KMP zone outline, loaded once at app start.
 KMP_BOUNDARY <- .kmp_time("read kmp_boundary.geojson",
   sf::st_read("data/kmp_boundary.geojson", quiet = TRUE))
@@ -182,7 +217,11 @@ message(sprintf("[startup] %-32s %6.2fs", "TOTAL eager startup",
 # --- UI ----------------------------------------------------------------------
 
 ui <- page_sidebar(
-  title = "KMP Watershed Prioritization",
+  title = tags$span(
+    kmp_logo(34),
+    tags$span("KMP Watershed Prioritization",
+              style = "vertical-align: middle; margin-left: 8px;")
+  ),
   theme = bs_theme(bootswatch = "flatly"),
 
   tags$head(
@@ -368,6 +407,8 @@ ui <- page_sidebar(
     nav_panel(
       title = "Acknowledgements",
       div(class = "p-3 report-body",
+        tags$div(style = "text-align: center; margin-bottom: 0.5rem;",
+                 kmp_logo(120)),
         tags$h2("Acknowledgements"),
         tags$p(
           "This prioritization tool grew out of work led by ",

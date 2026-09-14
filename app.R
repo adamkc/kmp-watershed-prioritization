@@ -1140,15 +1140,29 @@ server <- function(input, output, session) {
 
   # ---- Map: base tiles + boundary + reactive choropleth --------------------
 
+  # Keyless basemaps. CARTO Positron (the original default) started
+  # watermarking its free tiles "API KEY REQUIRED" in 2026, so the light
+  # base is now Esri World Gray Canvas, with USGS US Topo (public domain,
+  # basemap.nationalmap.gov) as the switchable topo alternative.
+  BASE_GROUPS <- c("Light", "Topo")
+  add_basemap_control <- function(m) {
+    addLayersControl(
+      m, baseGroups = BASE_GROUPS,
+      options = layersControlOptions(collapsed = TRUE)
+    )
+  }
+
   output$map <- renderLeaflet({
     leaflet() |>
-      addProviderTiles("CartoDB.Positron") |>
+      addProviderTiles("Esri.WorldGrayCanvas", group = "Light") |>
+      addProviderTiles("USGS.USTopo", group = "Topo") |>
       addPolygons(
         data = KMP_BOUNDARY, group = "kmp_boundary",
         fill = TRUE, fillColor = "#e9ecef", fillOpacity = 0.25,
         color = "#1f4f8b", weight = 2, opacity = 0.85,
         label = "KMP zone"
       ) |>
+      add_basemap_control() |>
       fitBounds(
         lng1 = KMP_BBOX[["xmin"]], lat1 = KMP_BBOX[["ymin"]],
         lng2 = KMP_BBOX[["xmax"]], lat2 = KMP_BBOX[["ymax"]]
@@ -1202,7 +1216,9 @@ server <- function(input, output, session) {
     } else NULL
 
     proxy <- leafletProxy("map") |>
-      clearGroup("hucs") |> clearGroup("top3") |> clearControls()
+      clearGroup("hucs") |> clearGroup("top3") |> clearControls() |>
+      # clearControls() drops the basemap switcher too; put it back.
+      add_basemap_control()
 
     if (all_na) {
       proxy <- proxy |>

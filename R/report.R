@@ -432,7 +432,7 @@ fill_report_chart_placeholders <- function(md,
     repl <- if (mode == "html")
       plot_to_data_uri(watershed_plots[[i]], width = 7.5, height = ws_h)
     else
-      "\n\n_Chart: watershed distribution profile -- see the HTML report or inline view._\n\n"
+      "\n\n_Chart: watershed distribution profile (see the HTML report or the inline view)._\n\n"
     md <- gsub(placeholder_chart_ws(i), repl, md, fixed = TRUE)
   }
 
@@ -457,10 +457,10 @@ fill_report_chart_placeholders <- function(md,
     ft_repl <- plot_to_data_uri(facets_plot,      width = 10,  height = facets_h)
     sn_repl <- plot_to_data_uri(sensitivity_plot, width = 8.5, height = 7.0)
   } else {
-    mp_repl <- "\n\n_Map: composite score by HUC -- see the HTML report or inline view._\n\n"
-    rk_repl <- "\n\n_Chart: top-ranked HUCs -- see the HTML report or inline view._\n\n"
-    ft_repl <- "\n\n_Chart: per-metric bin scores -- see the HTML report or inline view._\n\n"
-    sn_repl <- "\n\n_Chart: rank distribution -- see the HTML report or inline view._\n\n"
+    mp_repl <- "\n\n_Map: composite score by HUC (see the HTML report or the inline view)._\n\n"
+    rk_repl <- "\n\n_Chart: top-ranked HUCs (see the HTML report or the inline view)._\n\n"
+    ft_repl <- "\n\n_Chart: per-metric bin scores (see the HTML report or the inline view)._\n\n"
+    sn_repl <- "\n\n_Chart: rank distribution (see the HTML report or the inline view)._\n\n"
   }
   md <- gsub(PLACEHOLDER_CHART_MAP,         mp_repl, md, fixed = TRUE)
   md <- gsub(PLACEHOLDER_CHART_RANKING,     rk_repl, md, fixed = TRUE)
@@ -573,7 +573,7 @@ build_report_md <- function(rv_state,
   # --- HUC ranking ---
   add("## Top 10 HUCs by composite score", "")
   if (is.null(ranking_df) || nrow(ranking_df) == 0) {
-    add("_No rankings yet -- pick metrics and adjust weights to generate._", "")
+    add("_No rankings yet. Pick metrics and adjust weights to generate them._", "")
   } else {
     add("| Rank | HUC code | Name | Score |")
     add("|---:|:---|:---|---:|")
@@ -609,7 +609,7 @@ build_report_md <- function(rv_state,
         "_One panel per active metric, colored by that metric's ",
         "direction-adjusted bin score (1 = low priority contribution, ",
         "5 = high). Look for HUCs that score high on some metrics but ",
-        "not others -- those are the ones whose ranking shifts most ",
+        "not others; those are the ones whose ranking shifts most ",
         "as weights change._", "",
         PLACEHOLDER_CHART_FACETS, "")
   }
@@ -630,7 +630,7 @@ build_report_md <- function(rv_state,
       nm <- if (is.null(w$name) || is.na(w$name) || !nzchar(w$name))
               w$huccode else w$name
       rk <- if (is.null(w$overall_rank) || is.na(w$overall_rank)) "" else
-              sprintf(" — overall rank %s", .ordinal(w$overall_rank))
+              sprintf(" (overall rank %s)", .ordinal(w$overall_rank))
       add(sprintf("### %s%s", nm, rk), "",
           sprintf("HUC %s", w$huccode), "")
       tb <- w$table
@@ -676,7 +676,7 @@ build_report_md <- function(rv_state,
     )
 
     # Top 10 stability table
-    add("### Rank stability -- top 10 by median rank", "")
+    add("### Rank stability: top 10 by median rank", "")
     add("| Median | Baseline | HUC code | Name | IQR | P(top) |")
     add("|---:|---:|:---|:---|:---|---:|")
     top_stab <- sens_summary[seq_len(min(10, nrow(sens_summary))), , drop = FALSE]

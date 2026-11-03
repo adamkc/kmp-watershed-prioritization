@@ -92,7 +92,7 @@ draft_tab_header <- function(extra_text = NULL) {
   div(class = "draft-tab-header",
       tags$span(class = "draft-pill", "DRAFT"),
       tags$em(extra_text %||%
-              "Output is illustrative -- under active development."))
+              "Output is illustrative and under active development."))
 }
 
 # Inline "?" help icon with a bslib tooltip. Use in label strings
@@ -368,7 +368,7 @@ ui <- page_sidebar(
         p(class = "text-muted small mb-2",
           "Monte Carlo sensitivity: randomly perturb the current weights ",
           "and see which rankings are robust vs. which shift with weight ",
-          "variation. Inactive metrics (weight 0) stay at 0 -- perturbation ",
+          "variation. Inactive metrics (weight 0) stay at 0; perturbation ",
           "only moves weights you've already chosen."),
 
         fluidRow(
@@ -493,7 +493,8 @@ server <- function(input, output, session) {
     active_metrics = character(0),
     init_weights   = numeric(0),
     uploaded       = NULL,           # list(data, huc_level) from upload path
-    goal_text      = ""              # Step-3 scenario goal; flows to the report
+    goal_text      = "",             # Step-3 scenario goal; flows to the report
+    subzone_picked = FALSE           # TRUE once the user changes Step 1
   )
 
 
@@ -577,9 +578,13 @@ server <- function(input, output, session) {
     step4_title <- sprintf("Step 4. Weights \u00B7 %d metric%s",
                            n_active, if (n_active == 1) "" else "s")
 
-    # Which panels are open? Default: step 1. After a source is chosen,
-    # open the Goal and Weights steps together.
-    open_panels <- if (is.null(rv$source_type)) "step1" else c("step3", "step4")
+    # Which panels are open? Step 1 on arrival; Step 2 once a sub-zone has
+    # been picked (this panel re-renders on every sub-zone change, so the
+    # open state has to come from rv, not from one-off open/close messages);
+    # Goal and Weights together once a metrics source is chosen.
+    open_panels <- if (!is.null(rv$source_type)) c("step3", "step4")
+                   else if (isTRUE(rv$subzone_picked)) "step2"
+                   else "step1"
 
     tagList(
       accordion(
@@ -624,7 +629,7 @@ server <- function(input, output, session) {
 
           # Set the full-catalog entry point apart from the prebuilt
           # scenarios, and label it distinctly from the CSV-upload path.
-          div(class = "text-muted small text-center mb-1", "— or build your own —"),
+          div(class = "text-muted small text-center mb-1", "or build your own"),
           div(class = "d-grid gap-2 mb-3",
             actionButton("pick_custom", "Full list of metrics",
                          class = "btn-outline-secondary scenario-btn",
@@ -657,7 +662,7 @@ server <- function(input, output, session) {
           title = step3_title,
           p(class = "text-muted small", style = "line-height: 1.3;",
             "It's important to record the goal of a prioritization scenario. ",
-            "Note what you're hoping to prioritize or surface — what a ",
+            "Note what you're hoping to prioritize or surface: what a ",
             "top-ranked watershed should represent, and why this set of ",
             "metrics and weights. ",
             tags$em("This text is included in the generated report.")),
@@ -670,7 +675,7 @@ server <- function(input, output, session) {
                           "restoration where the most acreage can be recovered.")),
           if (identical(rv$source_type, "scenario"))
             p(class = "text-muted", style = "font-size: 0.7rem; margin-top: -4px;",
-              "Prefilled from the scenario description — edit freely.")
+              "Prefilled from the scenario description. Edit freely.")
         ),
 
         # --- Step 4: weights ---
@@ -781,7 +786,7 @@ server <- function(input, output, session) {
             tagList(
               p(class = "text-muted small", style = "line-height: 1.3;",
                 "The report profiles these watersheds across the active ",
-                "metrics -- each one's raw value, Jenks bin, and rank, plus ",
+                "metrics: each one's raw value, Jenks bin, and rank, plus ",
                 "a chart of where it falls in every metric's distribution."),
               radioButtons("ws_mode", label = NULL,
                 choices = c("Top 3 automatically" = "auto",
@@ -1012,6 +1017,13 @@ server <- function(input, output, session) {
 
   # --- Sub-zone selector ---
   observeEvent(input$subzone, {
+    # The dropdown lives in a renderUI, so it first reports its value when
+    # the sidebar renders. That NULL -> "full_kmp" arrival is not a user
+    # choice (ignoreInit only skips the observer's first, NULL run), and it
+    # used to auto-advance the app to Step 2 on load. Ignore any event that
+    # doesn't actually change the sub-zone.
+    if (identical(input$subzone, rv$subzone_id)) return()
+    rv$subzone_picked <- TRUE
     rv$subzone_id <- input$subzone
     # Auto-advance to Step 2 only if the user hasn't progressed past
     # it yet. Changing sub-zone mid-analysis shouldn't yank them back.
@@ -1134,7 +1146,7 @@ server <- function(input, output, session) {
     ii <- .i
     output[[sprintf("report_chart_ws_%d_out", ii)]] <- renderPlot({
       p <- ws_profile_plot(ii); req(p); p
-    })
+    }, res = 96)
   })
 
 
@@ -1330,7 +1342,7 @@ server <- function(input, output, session) {
 
     # Guard against all-zero weights (nothing to perturb).
     if (!any(w > 0)) {
-      showNotification("All weights are 0 -- nothing to perturb.",
+      showNotification("All weights are 0, so there is nothing to perturb.",
                        type = "warning")
       return()
     }
@@ -1382,7 +1394,7 @@ server <- function(input, output, session) {
   output$sens_plot <- renderPlot({
     req(sens_rv$results, sens_rv$summary)
     plot_rank_distribution(sens_rv$results, sens_rv$summary, limit_top = 30)
-  })
+  }, res = 96)
 
   output$sens_table <- renderDT({
     req(sens_rv$summary)
@@ -1511,7 +1523,7 @@ server <- function(input, output, session) {
   })
   output$report_chart_sensitivity_out <- renderPlot({
     p <- report_chart_sensitivity(); req(p); p
-  })
+  }, res = 96)
 
   # Inline view: interleave the report markdown with the rendered charts,
   # replacing each placeholder token with its plotOutput. The watershed
@@ -1523,7 +1535,7 @@ server <- function(input, output, session) {
     n_active <- length(rv$active_metrics)
     n_facet_cols <- if (n_active <= 3) n_active else if (n_active == 4) 2 else 3
     facets_h <- max(360, ceiling(n_active / n_facet_cols) * 260)
-    ws_h     <- max(360, n_active * 118)
+    ws_h     <- max(380, n_active * 165)   # rendered at res = 96, see outputs
 
     token_ui <- list()
     token_ui[[PLACEHOLDER_CHART_MAP]] <- if (!is.null(report_chart_map()))
